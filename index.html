@@ -80,6 +80,7 @@
     </div>
     <div class="power-up">
         <div id="powerUpStatus"></div>
+        <div id="audioStatus" style="margin-top: 10px; color: #ffff00;">音效: 开启</div>
     </div>
 
     <script>
@@ -101,7 +102,9 @@
             enemiesPerLevel: 10,
             activePowerUps: [], // 改为数组存储多个激活的道具
             totalEnemiesKilled: 0,
-            bossSpawnCount: 20
+            bossSpawnCount: 20,
+            invulnerable: false, // 无敌状态
+            invulnerableTime: 0 // 无敌时间倒计时
         };
 
         // 玩家飞机
@@ -162,6 +165,70 @@
                 this.sounds.powerUp = this.createTone(1200, 0.2, 'sine', [1200, 1600, 2000]);
                 this.sounds.hit = this.createTone(600, 0.1, 'triangle');
                 this.sounds.bossExplosion = this.createNoise(0.5, true);
+                
+                // 创建背景音乐
+                this.createBackgroundMusic();
+            }
+            
+            createBackgroundMusic() {
+                this.backgroundMusic = {
+                    isPlaying: false,
+                    oscillators: [],
+                    gainNode: null
+                };
+                
+                this.startBackgroundMusic();
+            }
+            
+            startBackgroundMusic() {
+                if (!this.enabled || !this.audioContext || this.backgroundMusic.isPlaying) return;
+                
+                this.backgroundMusic.gainNode = this.audioContext.createGain();
+                this.backgroundMusic.gainNode.connect(this.audioContext.destination);
+                this.backgroundMusic.gainNode.gain.setValueAtTime(this.musicVolume * 0.3, this.audioContext.currentTime);
+                
+                // 创建简单的背景音乐旋律
+                const melody = [440, 523, 659, 523, 440, 392, 440, 523]; // A, C, E, C, A, G, A, C
+                const rhythm = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
+                
+                let currentTime = this.audioContext.currentTime;
+                
+                const playMelody = () => {
+                    if (!this.enabled || !this.backgroundMusic.isPlaying) return;
+                    
+                    melody.forEach((freq, index) => {
+                        const oscillator = this.audioContext.createOscillator();
+                        const noteGain = this.audioContext.createGain();
+                        
+                        oscillator.connect(noteGain);
+                        noteGain.connect(this.backgroundMusic.gainNode);
+                        
+                        oscillator.type = 'sine';
+                        oscillator.frequency.setValueAtTime(freq, currentTime);
+                        
+                        noteGain.gain.setValueAtTime(0, currentTime);
+                        noteGain.gain.linearRampToValueAtTime(0.1, currentTime + 0.05);
+                        noteGain.gain.exponentialRampToValueAtTime(0.01, currentTime + rhythm[index]);
+                        
+                        oscillator.start(currentTime);
+                        oscillator.stop(currentTime + rhythm[index]);
+                        
+                        currentTime += rhythm[index];
+                    });
+                    
+                    // 循环播放
+                    setTimeout(playMelody, melody.length * 500);
+                };
+                
+                this.backgroundMusic.isPlaying = true;
+                playMelody();
+            }
+            
+            stopBackgroundMusic() {
+                this.backgroundMusic.isPlaying = false;
+                if (this.backgroundMusic.gainNode) {
+                    this.backgroundMusic.gainNode.disconnect();
+                }
             }
             
             createTone(frequency, duration, waveType = 'sine', frequencies = null) {
@@ -236,6 +303,13 @@
             
             toggle() {
                 this.enabled = !this.enabled;
+                
+                if (this.enabled) {
+                    this.startBackgroundMusic();
+                } else {
+                    this.stopBackgroundMusic();
+                }
+                
                 return this.enabled;
             }
         }
@@ -245,7 +319,7 @@
 
         // 子弹类
         class Bullet {
-            constructor(x, y, speed, color = '#ffff00', type = 'normal') {
+            constructor(x, y, speed, color = '#ffff00', type = 'normal', angle = 0) {
                 this.x = x;
                 this.y = y;
                 this.width = 4;
@@ -253,6 +327,9 @@
                 this.speed = speed;
                 this.color = color;
                 this.type = type;
+                this.angle = angle; // 发射角度（弧度）
+                this.vx = Math.sin(angle) * speed; // X方向速度
+                this.vy = Math.cos(angle) * speed; // Y方向速度
                 this.trail = []; // 子弹轨迹
                 this.glowIntensity = 0;
                 this.animationTimer = 0;
@@ -265,24 +342,89 @@
                         this.height = 12;
                         this.color = '#00ffff';
                         this.glowColor = '#00ffff';
+                        // 玩家子弹向上发射
+                        if (angle === 0) {
+                            this.vy = -Math.abs(speed);
+                            this.vx = 0;
+                        }
                         break;
                     case 'enemy':
+                    case 'normal':
                         this.width = 3;
                         this.height = 8;
-                        this.color = '#ff4444';
-                        this.glowColor = '#ff0000';
+                        this.color = color || '#ff6600';
+                        this.glowColor = '#ff3300';
+                        // 敌机子弹向下发射
+                        if (angle === 0) {
+                            this.vy = Math.abs(speed);
+                            this.vx = 0;
+                        }
                         break;
-                    case 'boss':
+                    case 'fast':
+                        this.width = 1.5;
+                        this.height = 8;
+                        this.color = color || '#00ffff';
+                        this.glowColor = '#0088ff';
+                        // 快速子弹 - 更细长
+                        if (angle === 0) {
+                            this.vy = Math.abs(speed);
+                            this.vx = 0;
+                        }
+                        break;
+                    case 'heavy':
                         this.width = 6;
                         this.height = 12;
+                        this.color = color || '#ff00ff';
+                        this.glowColor = '#cc00cc';
+                        // 重型子弹 - 更大更粗
+                        if (angle === 0) {
+                            this.vy = Math.abs(speed);
+                            this.vx = 0;
+                        }
+                        break;
+                    case 'armored':
+                        this.width = 7;
+                        this.height = 10;
+                        this.color = color || '#888888';
+                        this.glowColor = '#666666';
+                        // 装甲子弹 - 最粗壮
+                        if (angle === 0) {
+                            this.vy = Math.abs(speed);
+                            this.vx = 0;
+                        }
+                        break;
+                    case 'scout':
+                        this.width = 1;
+                        this.height = 12;
+                        this.color = color || '#00ff00';
+                        this.glowColor = '#00cc00';
+                        // 侦察子弹 - 最细最长
+                        if (angle === 0) {
+                            this.vy = Math.abs(speed);
+                            this.vx = 0;
+                        }
+                        break;
+                    case 'boss':
+                        this.width = 8;
+                        this.height = 15;
                         this.color = '#ff0000';
                         this.glowColor = '#ff6600';
+                        // Boss子弹 - 最大最威猛
+                        if (angle === 0) {
+                            this.vy = Math.abs(speed);
+                            this.vx = 0;
+                        }
                         break;
                     case 'powerShot':
                         this.width = 5;
                         this.height = 15;
                         this.color = '#ffff00';
                         this.glowColor = '#ffaa00';
+                        // 强化子弹向上发射
+                        if (angle === 0) {
+                            this.vy = -Math.abs(speed);
+                            this.vx = 0;
+                        }
                         break;
                 }
             }
@@ -294,7 +436,9 @@
                     this.trail.shift();
                 }
                 
-                this.y += this.speed;
+                // 使用速度向量移动
+                this.x += this.vx;
+                this.y += this.vy;
                 this.animationTimer += 0.3;
                 this.glowIntensity = Math.sin(this.animationTimer) * 0.3 + 0.7;
                 
@@ -325,8 +469,8 @@
             }
 
             draw() {
-                // 绘制轨迹
-                if (this.trail.length > 1) {
+                // 绘制轨迹（仅玩家子弹和强化子弹有轨迹效果）
+                if (this.trail.length > 1 && (this.type === 'player' || this.type === 'powerShot')) {
                     ctx.save();
                     for (let i = 0; i < this.trail.length - 1; i++) {
                         const alpha = (i + 1) / this.trail.length * 0.5;
@@ -354,38 +498,347 @@
                     ctx.restore();
                 }
                 
-                // 绘制主体
+                // 绘制主体 - 小蜜蜂风格
                 ctx.save();
-                if (this.type === 'player' || this.type === 'powerShot') {
-                    // 玩家子弹 - 箭头形状
+                if (this.type === 'player') {
+                    // 玩家子弹 - 等离子激光束风格
+                    // 外层能量场
+                    ctx.fillStyle = '#0088ff';
+                    ctx.fillRect(this.x + this.width/2 - 1.5, this.y, 3, this.height);
+                    
+                    // 主激光束
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(this.x + this.width/2 - 1, this.y, 2, this.height);
+                    
+                    // 激光核心
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(this.x + this.width/2 - 0.5, this.y, 1, this.height);
+                    
+                    // 动态能量波纹
+                    const waveOffset = Math.sin(this.animationTimer * 2) * 0.5;
+                    ctx.fillStyle = '#66ddff';
+                    ctx.fillRect(this.x + this.width/2 - 0.25 + waveOffset, this.y, 0.5, this.height);
+                    
+                    // 激光头部
                     ctx.fillStyle = this.color;
                     ctx.beginPath();
-                    ctx.moveTo(this.x + this.width/2, this.y);
-                    ctx.lineTo(this.x, this.y + this.height * 0.7);
-                    ctx.lineTo(this.x + this.width/2, this.y + this.height * 0.5);
-                    ctx.lineTo(this.x + this.width, this.y + this.height * 0.7);
+                    ctx.moveTo(this.x + this.width/2, this.y - 3);
+                    ctx.lineTo(this.x + this.width/2 - 2.5, this.y + 5);
+                    ctx.lineTo(this.x + this.width/2 + 2.5, this.y + 5);
                     ctx.closePath();
                     ctx.fill();
                     
-                    // 子弹尾部
-                    ctx.fillRect(this.x + this.width/4, this.y + this.height * 0.5, this.width/2, this.height/2);
-                } else {
-                    // 敌机子弹 - 椭圆形状
+                    // 头部光晕
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width/2, this.y - 1);
+                    ctx.lineTo(this.x + this.width/2 - 1, this.y + 2);
+                    ctx.lineTo(this.x + this.width/2 + 1, this.y + 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                } else if (this.type === 'powerShot') {
+                    // 强化子弹 - 脉冲能量球风格
+                    const pulseSize = 1 + Math.sin(this.animationTimer * 3) * 0.2;
+                    
+                    // 外层能量波
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.beginPath();
+                    ctx.ellipse(this.x + this.width/2, this.y + this.height/2, this.width/2 * pulseSize, this.height/2 * pulseSize, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 主能量球
                     ctx.fillStyle = this.color;
                     ctx.beginPath();
                     ctx.ellipse(this.x + this.width/2, this.y + this.height/2, this.width/2, this.height/2, 0, 0, Math.PI * 2);
                     ctx.fill();
-                }
-                
-                // 绘制内部高光
-                ctx.fillStyle = '#ffffff';
-                ctx.globalAlpha = 0.6;
-                if (this.type === 'player' || this.type === 'powerShot') {
-                    ctx.fillRect(this.x + this.width/2 - 0.5, this.y + 2, 1, this.height - 4);
-                } else {
+                    
+                    // 旋转能量环
+                    const ringRotation = this.animationTimer * 0.1;
+                    ctx.save();
+                    ctx.translate(this.x + this.width/2, this.y + this.height/2);
+                    ctx.rotate(ringRotation);
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.5;
                     ctx.beginPath();
-                    ctx.ellipse(this.x + this.width/2, this.y + this.height/3, this.width/4, this.height/4, 0, 0, Math.PI * 2);
+                    ctx.ellipse(0, 0, this.width/3, this.height/6, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.rotate(Math.PI/2);
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.width/3, this.height/6, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                    
+                    // 能量核心
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.ellipse(this.x + this.width/2, this.y + this.height/2, this.width/4, this.height/4, 0, 0, Math.PI * 2);
                     ctx.fill();
+                    
+                    // 能量火花
+                    for (let i = 0; i < 4; i++) {
+                        const sparkAngle = this.animationTimer * 0.2 + i * Math.PI/2;
+                        const sparkX = this.x + this.width/2 + Math.cos(sparkAngle) * this.width/2;
+                        const sparkY = this.y + this.height/2 + Math.sin(sparkAngle) * this.height/2;
+                        ctx.fillStyle = '#ffff00';
+                        ctx.fillRect(sparkX - 0.5, sparkY - 0.5, 1, 1);
+                    }
+                    
+                } else if (this.type === 'boss') {
+                    // Boss子弹 - 毒液球风格（最大最威猛）
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.ellipse(this.x + this.width/2, this.y + this.height/2, this.width/2, this.height/2, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 毒液纹理（更多气泡）
+                    ctx.fillStyle = '#ff6666';
+                    for (let i = 0; i < 6; i++) {
+                        const bubbleX = this.x + this.width/4 + (i % 3) * this.width/4;
+                        const bubbleY = this.y + this.height/4 + Math.floor(i / 3) * this.height/4;
+                        const bubbleSize = 1.5 + Math.sin(this.animationTimer + i) * 0.5;
+                        ctx.beginPath();
+                        ctx.ellipse(bubbleX, bubbleY, bubbleSize, bubbleSize, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    
+                } else if (this.type === 'fast') {
+                    // 快速敌机子弹 - 闪电能量箭风格（细长）
+                    // 能量光晕
+                    ctx.fillStyle = '#44aaff';
+                    ctx.fillRect(this.x + this.width/2 - 0.5, this.y, 1, this.height);
+                    
+                    // 主箭身（更细）
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(this.x + this.width/2 - 0.25, this.y, 0.5, this.height);
+                    
+                    // 能量核心线
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(this.x + this.width/2 - 0.125, this.y, 0.25, this.height);
+                    
+                    // 箭头
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width/2, this.y + this.height);
+                    ctx.lineTo(this.x + this.width/2 - 1.5, this.y + this.height - 3);
+                    ctx.lineTo(this.x + this.width/2 + 1.5, this.y + this.height - 3);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 箭头尖端
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width/2, this.y + this.height);
+                    ctx.lineTo(this.x + this.width/2 - 0.5, this.y + this.height - 1);
+                    ctx.lineTo(this.x + this.width/2 + 0.5, this.y + this.height - 1);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 动态能量尾迹
+                    const trailIntensity = Math.sin(this.animationTimer * 4) * 0.5 + 0.5;
+                    ctx.fillStyle = `rgba(102, 255, 255, ${trailIntensity})`;
+                    ctx.fillRect(this.x + this.width/2 - 0.25, this.y, 0.5, 3);
+                    
+                    // 能量羽翼
+                    ctx.fillStyle = '#88ddff';
+                    ctx.fillRect(this.x + this.width/2 - 1, this.y + this.height - 4, 0.5, 2);
+                    ctx.fillRect(this.x + this.width/2 + 0.5, this.y + this.height - 4, 0.5, 2);
+                    
+                } else if (this.type === 'heavy') {
+                    // 重型敌机子弹 - 爆破炮弹风格（更大更粗）
+                    // 外层爆炸光环
+                    const explosiveGlow = Math.sin(this.animationTimer * 2) * 0.3 + 0.7;
+                    ctx.fillStyle = `rgba(255, 100, 0, ${explosiveGlow * 0.5})`;
+                    ctx.fillRect(this.x + this.width/2 - 3.5, this.y - 1, 7, this.height + 2);
+                    
+                    // 主弹体（更粗）
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(this.x + this.width/2 - 2.5, this.y, 5, this.height);
+                    
+                    // 金属条纹
+                    ctx.fillStyle = '#cc44cc';
+                    ctx.fillRect(this.x + this.width/2 - 2, this.y + 2, 4, 1);
+                    ctx.fillRect(this.x + this.width/2 - 2, this.y + 5, 4, 1);
+                    ctx.fillRect(this.x + this.width/2 - 2, this.y + 8, 4, 1);
+                    
+                    // 能量核心
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.fillRect(this.x + this.width/2 - 1, this.y, 2, this.height);
+                    
+                    // 弹头
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width/2, this.y + this.height);
+                    ctx.lineTo(this.x + this.width/2 - 3, this.y + this.height - 5);
+                    ctx.lineTo(this.x + this.width/2 + 3, this.y + this.height - 5);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 弹头尖端
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width/2, this.y + this.height);
+                    ctx.lineTo(this.x + this.width/2 - 1.5, this.y + this.height - 2);
+                    ctx.lineTo(this.x + this.width/2 + 1.5, this.y + this.height - 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 爆炸火花
+                    for (let i = 0; i < 3; i++) {
+                        const sparkX = this.x + this.width/2 + (Math.random() - 0.5) * 4;
+                        const sparkY = this.y + Math.random() * this.height;
+                        ctx.fillStyle = '#ffff00';
+                        ctx.fillRect(sparkX, sparkY, 0.5, 0.5);
+                    }
+                    
+                } else if (this.type === 'armored') {
+                    // 装甲敌机子弹 - 重装钢钉风格（最粗壮）
+                    // 钢铁阴影
+                    ctx.fillStyle = '#444444';
+                    ctx.fillRect(this.x + this.width/2 - 2.5, this.y + 1, 6, this.height);
+                    
+                    // 主钉身（更粗）
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(this.x + this.width/2 - 3, this.y, 6, this.height);
+                    
+                    // 钢铁纹理
+                    ctx.fillStyle = '#666666';
+                    ctx.fillRect(this.x + this.width/2 - 2.5, this.y + 2, 5, 1);
+                    ctx.fillRect(this.x + this.width/2 - 2.5, this.y + 5, 5, 1);
+                    ctx.fillRect(this.x + this.width/2 - 2.5, this.y + 8, 5, 1);
+                    
+                    // 金属光泽条
+                    ctx.fillStyle = '#cccccc';
+                    ctx.fillRect(this.x + this.width/2 - 2.5, this.y, 1, this.height);
+                    ctx.fillRect(this.x + this.width/2 + 1.5, this.y, 1, this.height);
+                    
+                    // 中央能量线
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.fillRect(this.x + this.width/2 - 0.5, this.y, 1, this.height);
+                    
+                    // 钉头
+                    ctx.fillStyle = '#aaaaaa';
+                    ctx.fillRect(this.x + this.width/2 - 2.5, this.y + this.height - 4, 5, 4);
+                    
+                    // 钉头尖端
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width/2, this.y + this.height);
+                    ctx.lineTo(this.x + this.width/2 - 2, this.y + this.height - 3);
+                    ctx.lineTo(this.x + this.width/2 + 2, this.y + this.height - 3);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 钢铁火花
+                    const sparkCount = Math.floor(Math.random() * 2) + 1;
+                    for (let i = 0; i < sparkCount; i++) {
+                        const sparkX = this.x + this.width/2 + (Math.random() - 0.5) * 5;
+                        const sparkY = this.y + Math.random() * this.height;
+                        ctx.fillStyle = '#ffddaa';
+                        ctx.fillRect(sparkX, sparkY, 0.5, 1);
+                    }
+                    
+                } else if (this.type === 'scout') {
+                    // 侦察机子弹 - 量子激光束风格（最细最长）
+                    // 外层能量场
+                    const quantumPulse = Math.sin(this.animationTimer * 5) * 0.4 + 0.6;
+                    ctx.fillStyle = `rgba(0, 255, 0, ${quantumPulse * 0.3})`;
+                    ctx.fillRect(this.x + this.width/2 - 0.75, this.y, 1.5, this.height);
+                    
+                    // 激光主体（最细）
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(this.x + this.width/2 - 0.25, this.y, 0.5, this.height);
+                    
+                    // 量子核心
+                    ctx.fillStyle = '#66ff66';
+                    ctx.fillRect(this.x + this.width/2 - 0.125, this.y, 0.25, this.height);
+                    
+                    // 能量脉冲点
+                    for (let i = 0; i < 3; i++) {
+                        const pulseY = this.y + (i + 1) * this.height / 4;
+                        const pulseIntensity = Math.sin(this.animationTimer * 4 + i) * 0.5 + 0.5;
+                        ctx.fillStyle = `rgba(255, 255, 255, ${pulseIntensity})`;
+                        ctx.fillRect(this.x + this.width/2 - 0.25, pulseY, 0.5, 1);
+                    }
+                    
+                    // 激光头部
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width/2, this.y + this.height);
+                    ctx.lineTo(this.x + this.width/2 - 0.75, this.y + this.height - 2);
+                    ctx.lineTo(this.x + this.width/2 + 0.75, this.y + this.height - 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 激光尖端
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width/2, this.y + this.height);
+                    ctx.lineTo(this.x + this.width/2 - 0.25, this.y + this.height - 0.5);
+                    ctx.lineTo(this.x + this.width/2 + 0.25, this.y + this.height - 0.5);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 量子粒子
+                    for (let i = 0; i < 2; i++) {
+                        const particleX = this.x + this.width/2 + (Math.random() - 0.5) * 1;
+                        const particleY = this.y + Math.random() * this.height;
+                        ctx.fillStyle = '#88ff88';
+                        ctx.fillRect(particleX, particleY, 0.25, 0.25);
+                    }
+                    
+                } else {
+                    // 普通敌机子弹 - 毒刺风格
+                    // 毒液光晕
+                    const toxicGlow = Math.sin(this.animationTimer * 3) * 0.2 + 0.8;
+                    ctx.fillStyle = `rgba(255, 150, 102, ${toxicGlow * 0.4})`;
+                    ctx.fillRect(this.x + this.width/2 - 1.5, this.y, 3, this.height);
+                    
+                    // 刺针主体
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(this.x + this.width/2 - 1, this.y, 2, this.height);
+                    
+                    // 毒液纹理
+                    ctx.fillStyle = '#ff7744';
+                    ctx.fillRect(this.x + this.width/2 - 0.5, this.y + 1, 1, this.height - 2);
+                    
+                    // 毒液滴
+                    for (let i = 0; i < 2; i++) {
+                        const dropY = this.y + 3 + i * 4;
+                        ctx.fillStyle = '#ffaa66';
+                        ctx.fillRect(this.x + this.width/2 - 0.25, dropY, 0.5, 1);
+                    }
+                    
+                    // 刺针头部
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width/2, this.y + this.height);
+                    ctx.lineTo(this.x + this.width/2 - 2, this.y + this.height - 4);
+                    ctx.lineTo(this.x + this.width/2 + 2, this.y + this.height - 4);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 刺针尖端
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width/2, this.y + this.height);
+                    ctx.lineTo(this.x + this.width/2 - 0.75, this.y + this.height - 1.5);
+                    ctx.lineTo(this.x + this.width/2 + 0.75, this.y + this.height - 1.5);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // 毒刺倒钩
+                    ctx.fillStyle = '#ff9966';
+                    ctx.fillRect(this.x + this.width/2 - 3, this.y + this.height - 6, 2, 1);
+                    ctx.fillRect(this.x + this.width/2 + 1, this.y + this.height - 6, 2, 1);
+                    
+                    // 毒液气泡
+                    if (Math.random() < 0.3) {
+                        const bubbleX = this.x + this.width/2 + (Math.random() - 0.5) * 2;
+                        const bubbleY = this.y + Math.random() * this.height;
+                        ctx.fillStyle = '#ffcc88';
+                        ctx.fillRect(bubbleX, bubbleY, 0.5, 0.5);
+                    }
                 }
                 ctx.restore();
                 
@@ -416,6 +869,11 @@
                 this.moveTimer = 0;
                 this.hitFlash = 0; // 被击中闪烁效果
                 this.maxHealth = 1; // 最大血量
+                this.lifeTimer = 0; // 生存时间计时器
+                this.behaviorState = 'normal'; // 行为状态：normal, retreating, hovering, escaping
+                this.targetY = canvas.height + 50; // 目标Y位置
+                this.hoverTime = 0; // 悬停时间
+                this.escapeTriggered = false; // 是否触发逃跑
                 
                 // 根据类型设置属性
                 switch(type) {
@@ -427,6 +885,9 @@
                         this.height = 60;
                         this.speed = 0.5;
                         this.shootInterval = 30;
+                        this.behaviorState = 'hovering';
+                        this.targetY = 100; // Boss悬停在屏幕上方
+                        this.hoverTime = 600; // 悬停10秒
                         break;
                     case 'fast':
                         this.color = '#00ffff';
@@ -435,6 +896,11 @@
                         this.speed = 3 + Math.random() * 2;
                         this.width = 30;
                         this.height = 25;
+                        // 快速敌机有30%概率是穿越型（不停留直接穿过）
+                        if (Math.random() < 0.3) {
+                            this.behaviorState = 'passing';
+                            this.speed = 4 + Math.random() * 3;
+                        }
                         break;
                     case 'heavy':
                         this.color = '#ff00ff';
@@ -443,22 +909,67 @@
                         this.speed = 0.5 + Math.random();
                         this.width = 50;
                         this.height = 40;
+                        // 重型敌机会悬停一段时间
+                        this.behaviorState = 'hovering';
+                        this.targetY = 150 + Math.random() * 200;
+                        this.hoverTime = 180 + Math.random() * 120; // 3-5秒悬停
+                        break;
+                    case 'armored':
+                        this.color = '#888888';
+                        this.health = 3;
+                        this.maxHealth = 3;
+                        this.speed = 1;
+                        this.width = 45;
+                        this.height = 35;
+                        this.behaviorState = 'hovering';
+                        this.targetY = 120 + Math.random() * 150;
+                        this.hoverTime = 240; // 4秒悬停
+                        break;
+                    case 'scout':
+                        this.color = '#00ff00';
+                        this.health = 1;
+                        this.maxHealth = 1;
+                        this.speed = 2;
+                        this.width = 25;
+                        this.height = 20;
+                        // 侦察机会在受到攻击后逃跑
+                        this.behaviorState = 'normal';
+                        this.targetY = 200 + Math.random() * 100;
                         break;
                     default:
                         this.color = '#ff6600';
                         this.health = 1;
                         this.maxHealth = 1;
+                        // 普通敌机有20%概率悬停
+                        if (Math.random() < 0.2) {
+                            this.behaviorState = 'hovering';
+                            this.targetY = 100 + Math.random() * 200;
+                            this.hoverTime = 120 + Math.random() * 60; // 2-3秒悬停
+                        }
                 }
             }
 
             update() {
-                // 移动模式
-                if (this.movePattern === 'zigzag') {
-                    this.moveTimer++;
-                    this.x += Math.sin(this.moveTimer * 0.1) * 2;
-                }
+                this.lifeTimer++;
                 
-                this.y += this.speed;
+                // 根据行为状态执行不同的移动逻辑
+                switch(this.behaviorState) {
+                    case 'normal':
+                        this.updateNormalMovement();
+                        break;
+                    case 'hovering':
+                        this.updateHoveringMovement();
+                        break;
+                    case 'retreating':
+                        this.updateRetreatingMovement();
+                        break;
+                    case 'escaping':
+                        this.updateEscapingMovement();
+                        break;
+                    case 'passing':
+                        this.updatePassingMovement();
+                        break;
+                }
                 
                 // 边界检查
                 if (this.x < 0) this.x = 0;
@@ -469,12 +980,75 @@
                     this.hitFlash--;
                 }
                 
-                // 敌机射击
-                this.shootTimer++;
-                if (this.shootTimer >= this.shootInterval) {
-                    this.shoot();
-                    this.shootTimer = 0;
-                    this.shootInterval = 60 + Math.random() * 120;
+                // 敌机射击（逃跑状态下不射击）
+                if (this.behaviorState !== 'escaping' && this.behaviorState !== 'retreating') {
+                    this.shootTimer++;
+                    if (this.shootTimer >= this.shootInterval) {
+                        this.shoot();
+                        this.shootTimer = 0;
+                        this.shootInterval = 60 + Math.random() * 120;
+                    }
+                }
+            }
+            
+            updateNormalMovement() {
+                // 移动模式
+                if (this.movePattern === 'zigzag') {
+                    this.moveTimer++;
+                    this.x += Math.sin(this.moveTimer * 0.1) * 2;
+                }
+                
+                this.y += this.speed;
+            }
+            
+            updateHoveringMovement() {
+                // 向目标位置移动
+                if (this.y < this.targetY) {
+                    this.y += this.speed;
+                    
+                    // 悬停时的左右摆动
+                    if (this.movePattern === 'zigzag') {
+                        this.moveTimer++;
+                        this.x += Math.sin(this.moveTimer * 0.1) * 1.5;
+                    }
+                } else {
+                    // 到达目标位置，开始悬停
+                    this.hoverTime--;
+                    
+                    // 悬停时的左右摆动
+                    this.moveTimer++;
+                    this.x += Math.sin(this.moveTimer * 0.05) * 1;
+                    
+                    // 悬停时间结束，开始撤退
+                    if (this.hoverTime <= 0) {
+                        this.behaviorState = 'retreating';
+                        this.speed = Math.abs(this.speed) * 1.5; // 撤退时速度加快
+                    }
+                }
+            }
+            
+            updateRetreatingMovement() {
+                // 向上撤退
+                this.y -= this.speed;
+                
+                // 左右摆动撤退
+                this.moveTimer++;
+                this.x += Math.sin(this.moveTimer * 0.15) * 2;
+            }
+            
+            updateEscapingMovement() {
+                // 快速逃离
+                this.y -= this.speed * 2;
+                this.x += (Math.random() - 0.5) * 4; // 随机左右移动
+            }
+            
+            updatePassingMovement() {
+                // 快速穿越，不停留
+                this.y += this.speed;
+                
+                if (this.movePattern === 'zigzag') {
+                    this.moveTimer++;
+                    this.x += Math.sin(this.moveTimer * 0.2) * 3;
                 }
             }
             
@@ -482,42 +1056,116 @@
             takeDamage() {
                 this.health--;
                 this.hitFlash = 10; // 闪烁10帧
+                
+                // 侦察机受到攻击后逃跑
+                if (this.type === 'scout' && !this.escapeTriggered) {
+                    this.behaviorState = 'escaping';
+                    this.escapeTriggered = true;
+                    this.speed = 3; // 加速逃跑
+                }
+                
+                // 重型敌机受到攻击后可能提前撤退
+                if (this.type === 'heavy' && this.health <= 1 && this.behaviorState === 'hovering') {
+                    this.behaviorState = 'retreating';
+                    this.speed = Math.abs(this.speed) * 2;
+                }
             }
 
             shoot() {
-敌机消失的机制要更丰富一点，不都是顶上出现底部消失，有的敌机需要被打爆之后才会消失。                // 播放敌机射击音效
+
                 audioManager.play('enemyShoot');
                 
+                // 计算朝向玩家的角度
+                const dx = (player.x + player.width / 2) - (this.x + this.width / 2);
+                const dy = (player.y + player.height / 2) - (this.y + this.height / 2);
+                const angleToPlayer = Math.atan2(dx, dy);
+                
                 if (this.type === 'boss') {
-                    // Boss发射多发子弹
+                    // Boss发射扇形多发子弹，以朝向玩家为中心
+                    const baseAngles = [-0.4, -0.2, 0, 0.2, 0.4]; // 扇形角度偏移
+                    baseAngles.forEach(offset => {
+                        enemyBullets.push(new Bullet(
+                            this.x + this.width / 2,
+                            this.y + this.height,
+                            4,
+                            '#ff0000',
+                            'boss',
+                            angleToPlayer + offset
+                        ));
+                    });
+                } else if (this.type === 'fast') {
+                    // 快速敌机发射双发，朝向玩家左右偏移
                     enemyBullets.push(new Bullet(
-                        this.x + this.width / 4,
+                        this.x + this.width / 3,
                         this.y + this.height,
                         4,
-                        '#ff0000',
-                        'boss'
+                        '#00ffff',
+                        'fast',
+                        angleToPlayer - 0.2
                     ));
                     enemyBullets.push(new Bullet(
-                        this.x + this.width / 2 - 3,
+                        this.x + this.width * 2/3,
                         this.y + this.height,
                         4,
-                        '#ff0000',
-                        'boss'
+                        '#00ffff',
+                        'fast',
+                        angleToPlayer + 0.2
                     ));
+                } else if (this.type === 'heavy') {
+                    // 重型敌机发射三发子弹，朝向玩家
                     enemyBullets.push(new Bullet(
-                        this.x + this.width * 3/4,
-                        this.y + this.height,
-                        4,
-                        '#ff0000',
-                        'boss'
-                    ));
-                } else {
-                    enemyBullets.push(new Bullet(
-                        this.x + this.width / 2 - 1.5,
+                        this.x + this.width / 2,
                         this.y + this.height,
                         3,
-                        '#ff4444',
-                        'enemy'
+                        '#ff00ff',
+                        'heavy',
+                        angleToPlayer
+                    ));
+                    enemyBullets.push(new Bullet(
+                        this.x + this.width / 2,
+                        this.y + this.height,
+                        3,
+                        '#ff00ff',
+                        'heavy',
+                        angleToPlayer - 0.15
+                    ));
+                    enemyBullets.push(new Bullet(
+                        this.x + this.width / 2,
+                        this.y + this.height,
+                        3,
+                        '#ff00ff',
+                        'heavy',
+                        angleToPlayer + 0.15
+                    ));
+                } else if (this.type === 'armored') {
+                    // 装甲敌机发射重型子弹
+                    enemyBullets.push(new Bullet(
+                        this.x + this.width / 2,
+                        this.y + this.height,
+                        2,
+                        '#888888',
+                        'armored',
+                        angleToPlayer
+                    ));
+                } else if (this.type === 'scout') {
+                    // 侦察机发射精准单发，直接朝向玩家
+                    enemyBullets.push(new Bullet(
+                        this.x + this.width / 2,
+                        this.y + this.height,
+                        4,
+                        '#00ff00',
+                        'scout',
+                        angleToPlayer
+                    ));
+                } else {
+                    // 普通敌机发射朝向玩家的单发子弹
+                    enemyBullets.push(new Bullet(
+                        this.x + this.width / 2,
+                        this.y + this.height,
+                        3,
+                        '#ff6600',
+                        'normal',
+                        angleToPlayer
                     ));
                 }
             }
@@ -527,31 +1175,45 @@
                 const isFlashing = this.hitFlash > 0 && this.hitFlash % 4 < 2;
                 
                 if (this.type === 'boss') {
-                    // 绘制Boss飞机形状
-                    ctx.fillStyle = isFlashing ? '#ffffff' : this.color;
+                    // Boss - 蜘蛛女王风格
+                    ctx.fillStyle = isFlashing ? '#ffffff' : '#aa0000';
                     
-                    // 主体
-                    ctx.fillRect(this.x + this.width/4, this.y, this.width/2, this.height);
+                    // 腹部（主体）
+                    ctx.fillRect(this.x + this.width/4, this.y + this.height/4, this.width/2, this.height/2);
                     
-                    // 机翼
-                    ctx.fillRect(this.x, this.y + this.height/3, this.width, this.height/3);
+                    // 头胸部
+                    ctx.fillStyle = isFlashing ? '#ffffff' : '#880000';
+                    ctx.fillRect(this.x + this.width/3, this.y, this.width/3, this.height/3);
                     
-                    // 机头
-                    ctx.beginPath();
-                    ctx.moveTo(this.x + this.width/2, this.y - 10);
-                    ctx.lineTo(this.x + this.width/4, this.y);
-                    ctx.lineTo(this.x + this.width*3/4, this.y);
-                    ctx.closePath();
-                    ctx.fill();
+                    // 多只眼睛
+                    ctx.fillStyle = isFlashing ? '#000000' : '#ffff00';
+                    for (let i = 0; i < 6; i++) {
+                        const eyeX = this.x + this.width/3 + (i % 3) * 6;
+                        const eyeY = this.y + 5 + Math.floor(i / 3) * 4;
+                        ctx.fillRect(eyeX, eyeY, 2, 2);
+                    }
                     
-                    // 引擎
-                    ctx.fillStyle = isFlashing ? '#ffffff' : '#ffff00';
-                    ctx.fillRect(this.x + this.width/6, this.y + this.height*2/3, this.width/6, this.height/4);
-                    ctx.fillRect(this.x + this.width*2/3, this.y + this.height*2/3, this.width/6, this.height/4);
+                    // 蜘蛛腿（8条）
+                    ctx.fillStyle = isFlashing ? '#ffffff' : '#660000';
+                    for (let i = 0; i < 4; i++) {
+                        const legY = this.y + this.height/4 + i * 8;
+                        // 左侧腿
+                        ctx.fillRect(this.x - 8, legY, 12, 2);
+                        ctx.fillRect(this.x - 12, legY + 2, 8, 2);
+                        // 右侧腿
+                        ctx.fillRect(this.x + this.width - 4, legY, 12, 2);
+                        ctx.fillRect(this.x + this.width + 4, legY + 2, 8, 2);
+                    }
                     
-                    // 驾驶舱
-                    ctx.fillStyle = isFlashing ? '#ffffff' : '#00ffff';
-                    ctx.fillRect(this.x + this.width*2/5, this.y + this.height/4, this.width/5, this.height/4);
+                    // 毒牙
+                    ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
+                    ctx.fillRect(this.x + this.width/2 - 3, this.y + this.height/3 - 2, 2, 8);
+                    ctx.fillRect(this.x + this.width/2 + 1, this.y + this.height/3 - 2, 2, 8);
+                    
+                    // 腹部花纹
+                    ctx.fillStyle = isFlashing ? '#000000' : '#ff4444';
+                    ctx.fillRect(this.x + this.width/3, this.y + this.height/3, this.width/3, 3);
+                    ctx.fillRect(this.x + this.width/3, this.y + this.height/2, this.width/3, 3);
                     
                     // 绘制Boss血量条
                     const barWidth = this.width;
@@ -571,21 +1233,172 @@
                     ctx.lineWidth = 1;
                     ctx.strokeRect(this.x, this.y - 15, barWidth, barHeight);
                 } else {
-                    // 普通敌机绘制
+                    // 根据敌机类型绘制不同外观
                     ctx.fillStyle = isFlashing ? '#ffffff' : this.color;
-                    ctx.fillRect(this.x, this.y, this.width, this.height);
                     
-                    // 绘制敌机细节
-                    ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
-                    ctx.fillRect(this.x + 5, this.y + 5, 5, 5);
-                    ctx.fillRect(this.x + this.width - 10, this.y + 5, 5, 5);
+                    switch(this.type) {
+                        case 'armored':
+                            // 装甲敌机 - 甲虫风格
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#444444';
+                            ctx.fillRect(this.x + 3, this.y + 2, this.width - 6, this.height - 4);
+                            
+                            // 甲壳
+                            ctx.fillStyle = isFlashing ? '#000000' : '#666666';
+                            ctx.fillRect(this.x + 5, this.y + 4, this.width - 10, this.height - 8);
+                            
+                            // 甲壳纹理
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#888888';
+                            ctx.fillRect(this.x + 8, this.y + 6, this.width - 16, 2);
+                            ctx.fillRect(this.x + 8, this.y + 10, this.width - 16, 2);
+                            ctx.fillRect(this.x + 8, this.y + 14, this.width - 16, 2);
+                            
+                            // 触角
+                            ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
+                            ctx.fillRect(this.x + this.width/2 - 4, this.y - 1, 2, 4);
+                            ctx.fillRect(this.x + this.width/2 + 2, this.y - 1, 2, 4);
+                            
+                            // 腿部
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#222222';
+                            for (let i = 0; i < 3; i++) {
+                                ctx.fillRect(this.x, this.y + 4 + i * 4, 3, 1);
+                                ctx.fillRect(this.x + this.width - 3, this.y + 4 + i * 4, 3, 1);
+                            }
+                            break;
+                            
+                        case 'scout':
+                            // 侦察机 - 蜻蜓风格
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#00cc66';
+                            ctx.fillRect(this.x + 6, this.y + 4, this.width - 12, this.height - 8);
+                            
+                            // 翅膀
+                            ctx.fillStyle = isFlashing ? '#000000' : '#00ff88';
+                            ctx.fillRect(this.x, this.y + 6, 5, 2);
+                            ctx.fillRect(this.x + this.width - 5, this.y + 6, 5, 2);
+                            ctx.fillRect(this.x + 1, this.y + 9, 5, 2);
+                            ctx.fillRect(this.x + this.width - 6, this.y + 9, 5, 2);
+                            
+                            // 触角
+                            ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
+                            ctx.fillRect(this.x + this.width/2 - 1, this.y, 2, 4);
+                            
+                            // 复眼
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#ff0000';
+                            ctx.fillRect(this.x + this.width/2 - 3, this.y + 5, 2, 2);
+                            ctx.fillRect(this.x + this.width/2 + 1, this.y + 5, 2, 2);
+                            
+                            if (this.behaviorState === 'escaping') {
+                                // 逃跑时翅膀快速振动效果
+                                ctx.fillStyle = '#ffff00';
+                                ctx.fillRect(this.x - 2, this.y + 5, this.width + 4, 1);
+                                ctx.fillRect(this.x - 2, this.y + 10, this.width + 4, 1);
+                            }
+                            break;
+                            
+                        case 'fast':
+                            // 快速敌机 - 黄蜂风格
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#ffaa00';
+                            ctx.fillRect(this.x + 4, this.y, this.width - 8, this.height);
+                            
+                            // 黄黑条纹
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#000000';
+                            for (let i = 0; i < 3; i++) {
+                                ctx.fillRect(this.x + 6, this.y + 3 + i * 4, this.width - 12, 1);
+                            }
+                            
+                            // 翅膀
+                            ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
+                            ctx.fillRect(this.x, this.y + 4, 4, 6);
+                            ctx.fillRect(this.x + this.width - 4, this.y + 4, 4, 6);
+                            
+                            // 毒刺
+                            ctx.fillStyle = isFlashing ? '#000000' : '#ff0000';
+                            ctx.fillRect(this.x + this.width/2 - 1, this.y + this.height, 2, 3);
+                            break;
+                            
+                        case 'heavy':
+                            // 重型敌机 - 独角仙风格
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#4400aa';
+                            ctx.fillRect(this.x + 2, this.y, this.width - 4, this.height);
+                            
+                            // 甲壳
+                            ctx.fillStyle = isFlashing ? '#000000' : '#6622cc';
+                            ctx.fillRect(this.x + 4, this.y + 2, this.width - 8, this.height - 4);
+                            
+                            // 甲壳纹理
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#8844ee';
+                            ctx.fillRect(this.x + 6, this.y + 4, this.width - 12, 2);
+                            ctx.fillRect(this.x + 6, this.y + 8, this.width - 12, 2);
+                            
+                            // 独角
+                            ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
+                            ctx.fillRect(this.x + this.width/2 - 1, this.y - 3, 2, 5);
+                            
+                            // 腿部
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#220066';
+                            for (let i = 0; i < 3; i++) {
+                                ctx.fillRect(this.x, this.y + 3 + i * 3, 2, 1);
+                                ctx.fillRect(this.x + this.width - 2, this.y + 3 + i * 3, 2, 1);
+                            }
+                            break;
+                            
+                        default:
+                            // 普通敌机 - 蚂蚁风格
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#cc4400';
+                            ctx.fillRect(this.x + 6, this.y + 2, this.width - 12, this.height - 4);
+                            
+                            // 头部
+                            ctx.fillStyle = isFlashing ? '#000000' : '#aa3300';
+                            ctx.fillRect(this.x + this.width/2 - 3, this.y, 6, 6);
+                            
+                            // 触角
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#000000';
+                            ctx.fillRect(this.x + this.width/2 - 2, this.y - 1, 1, 3);
+                            ctx.fillRect(this.x + this.width/2 + 1, this.y - 1, 1, 3);
+                            
+                            // 腿部
+                            ctx.fillStyle = isFlashing ? '#000000' : '#884422';
+                            for (let i = 0; i < 2; i++) {
+                                ctx.fillRect(this.x + 2, this.y + 6 + i * 3, 3, 1);
+                                ctx.fillRect(this.x + this.width - 5, this.y + 6 + i * 3, 3, 1);
+                            }
+                            
+                            // 身体分节
+                            ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
+                            ctx.fillRect(this.x + 8, this.y + 6, this.width - 16, 1);
+                            ctx.fillRect(this.x + 8, this.y + 9, this.width - 16, 1);
+                            break;
+                    }
+                    
+                    // 为多血量敌机绘制血量指示器
+                    if (this.maxHealth > 1) {
+                        const barWidth = this.width * 0.8;
+                        const barHeight = 3;
+                        const healthPercent = this.health / this.maxHealth;
+                        
+                        // 血量条背景
+                        ctx.fillStyle = '#333333';
+                        ctx.fillRect(this.x + (this.width - barWidth) / 2, this.y - 8, barWidth, barHeight);
+                        
+                        // 血量条
+                        ctx.fillStyle = healthPercent > 0.6 ? '#00ff00' : healthPercent > 0.3 ? '#ffff00' : '#ff0000';
+                        ctx.fillRect(this.x + (this.width - barWidth) / 2, this.y - 8, barWidth * healthPercent, barHeight);
+                    }
+                    
+                    // 行为状态指示器
+                    if (this.behaviorState === 'escaping') {
+                        // 逃跑状态显示警告标志
+                        ctx.fillStyle = '#ffff00';
+                        ctx.fillRect(this.x + this.width - 8, this.y - 8, 6, 6);
+                        ctx.fillStyle = '#ff0000';
+                        ctx.fillRect(this.x + this.width - 6, this.y - 6, 2, 2);
+                    }
                 }
             }
         }
 
         // 粒子效果类
         class Particle {
-            constructor(x, y, color = null) {
+            constructor(x, y, color = null, type = 'normal') {
                 this.x = x;
                 this.y = y;
                 this.vx = (Math.random() - 0.5) * 10;
@@ -596,6 +1409,7 @@
                 this.size = Math.random() * 3 + 1;
                 this.rotation = Math.random() * Math.PI * 2;
                 this.rotationSpeed = (Math.random() - 0.5) * 0.3;
+                this.type = type; // 'normal', 'petal', 'pollen', 'honey'
             }
 
             update() {
@@ -606,6 +1420,12 @@
                 this.vy *= 0.98;
                 this.rotation += this.rotationSpeed;
                 this.size *= 0.98;
+                
+                // 花瓣类型的粒子有飘落效果
+                if (this.type === 'petal') {
+                    this.vy += 0.1; // 重力效果
+                    this.vx += Math.sin(this.life * 0.1) * 0.1; // 飘摆效果
+                }
             }
 
             draw() {
@@ -615,21 +1435,66 @@
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.rotation);
                 
-                // 绘制星形粒子
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                for (let i = 0; i < 5; i++) {
-                    const angle = (i * Math.PI * 2) / 5;
-                    const x = Math.cos(angle) * this.size;
-                    const y = Math.sin(angle) * this.size;
-                    if (i === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
+                switch(this.type) {
+                    case 'petal':
+                        // 花瓣形状
+                        ctx.fillStyle = this.color;
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, this.size * 2, this.size, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        // 花瓣纹理
+                        ctx.strokeStyle = '#ff1493';
+                        ctx.lineWidth = 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(0, -this.size);
+                        ctx.lineTo(0, this.size);
+                        ctx.stroke();
+                        break;
+                        
+                    case 'pollen':
+                        // 花粉颗粒
+                        ctx.fillStyle = this.color;
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, this.size, this.size, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        // 花粉光晕
+                        ctx.fillStyle = '#ffff80';
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, this.size * 0.5, this.size * 0.5, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                        
+                    case 'honey':
+                        // 蜂蜜液滴
+                        ctx.fillStyle = this.color;
+                        ctx.beginPath();
+                        ctx.ellipse(0, -this.size * 0.3, this.size * 0.8, this.size * 1.2, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        // 高光
+                        ctx.fillStyle = '#ffff80';
+                        ctx.beginPath();
+                        ctx.ellipse(-this.size * 0.3, -this.size * 0.6, this.size * 0.3, this.size * 0.4, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                        
+                    default:
+                        // 默认星形粒子
+                        ctx.fillStyle = this.color;
+                        ctx.beginPath();
+                        for (let i = 0; i < 5; i++) {
+                            const angle = (i * Math.PI * 2) / 5;
+                            const x = Math.cos(angle) * this.size;
+                            const y = Math.sin(angle) * this.size;
+                            if (i === 0) {
+                                ctx.moveTo(x, y);
+                            } else {
+                                ctx.lineTo(x, y);
+                            }
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
                 }
-                ctx.closePath();
-                ctx.fill();
                 
                 ctx.restore();
             }
@@ -673,15 +1538,114 @@
                 ctx.save();
                 ctx.translate(this.x + this.width/2, this.y + this.height/2);
                 ctx.scale(pulse, pulse);
-                ctx.fillStyle = this.color;
-                ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
                 
-                // 绘制道具图标
-                ctx.fillStyle = '#000000';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'center';
-                const symbol = this.getSymbol();
-                ctx.fillText(symbol, 0, 4);
+                // 根据道具类型绘制不同的小蜜蜂风格图标
+                switch(this.type) {
+                    case 'health':
+                        // 花蜜 - 粉色花朵
+                        ctx.fillStyle = '#ff69b4';
+                        // 花瓣
+                        for (let i = 0; i < 5; i++) {
+                            const angle = (i * Math.PI * 2) / 5;
+                            const petalX = Math.cos(angle) * 8;
+                            const petalY = Math.sin(angle) * 8;
+                            ctx.beginPath();
+                            ctx.ellipse(petalX, petalY, 4, 6, angle, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        // 花心
+                        ctx.fillStyle = '#ffff00';
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, 3, 3, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                        
+                    case 'doubleShot':
+                        // 花粉 - 黄色颗粒
+                        ctx.fillStyle = '#ffd700';
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, 10, 10, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        // 花粉颗粒
+                        ctx.fillStyle = '#ffff00';
+                        for (let i = 0; i < 8; i++) {
+                            const angle = (i * Math.PI * 2) / 8;
+                            const dotX = Math.cos(angle) * 6;
+                            const dotY = Math.sin(angle) * 6;
+                            ctx.beginPath();
+                            ctx.ellipse(dotX, dotY, 1.5, 1.5, 0, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                        
+                    case 'shield':
+                        // 蜂蜡 - 六边形蜂巢
+                        ctx.fillStyle = '#ffa500';
+                        ctx.beginPath();
+                        for (let i = 0; i < 6; i++) {
+                            const angle = (i * Math.PI * 2) / 6;
+                            const x = Math.cos(angle) * 10;
+                            const y = Math.sin(angle) * 10;
+                            if (i === 0) {
+                                ctx.moveTo(x, y);
+                            } else {
+                                ctx.lineTo(x, y);
+                            }
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                        // 蜂巢纹理
+                        ctx.strokeStyle = '#ff8c00';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        // 内部小六边形
+                        ctx.fillStyle = '#ffb347';
+                        ctx.beginPath();
+                        for (let i = 0; i < 6; i++) {
+                            const angle = (i * Math.PI * 2) / 6;
+                            const x = Math.cos(angle) * 5;
+                            const y = Math.sin(angle) * 5;
+                            if (i === 0) {
+                                ctx.moveTo(x, y);
+                            } else {
+                                ctx.lineTo(x, y);
+                            }
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                        
+                    case 'rapidFire':
+                        // 蜂蜜 - 金色液滴
+                        ctx.fillStyle = '#ffb000';
+                        // 液滴形状
+                        ctx.beginPath();
+                        ctx.ellipse(0, -3, 6, 8, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.ellipse(0, 3, 4, 6, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        // 高光
+                        ctx.fillStyle = '#ffff80';
+                        ctx.beginPath();
+                        ctx.ellipse(-2, -5, 2, 3, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        // 滴落效果
+                        ctx.fillStyle = '#ff8c00';
+                        ctx.beginPath();
+                        ctx.ellipse(0, 8, 1.5, 2, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                        
+                    default:
+                        // 默认 - 简单圆形
+                        ctx.fillStyle = this.color;
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, 10, 10, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                }
+                
                 ctx.restore();
             }
 
@@ -701,8 +1665,18 @@
         const normalShootInterval = 10;
         const rapidShootInterval = 5;
         
+        // 启动音频上下文（需要用户交互）
+        function initAudio() {
+            if (audioManager.audioContext && audioManager.audioContext.state === 'suspended') {
+                audioManager.audioContext.resume();
+            }
+        }
+        
         // 键盘事件处理
         document.addEventListener('keydown', (e) => {
+            // 首次按键时启动音频
+            initAudio();
+            
             gameState.keys[e.key.toLowerCase()] = true;
             
             if (e.key === ' ') {
@@ -710,6 +1684,15 @@
                 if (gameState.gameOver) {
                     restartGame();
                 }
+            }
+            
+            // 音效开关
+            if (e.key.toLowerCase() === 'm') {
+                e.preventDefault();
+                const enabled = audioManager.toggle();
+                const audioStatusElement = document.getElementById('audioStatus');
+                audioStatusElement.textContent = '音效: ' + (enabled ? '开启' : '关闭');
+                audioStatusElement.style.color = enabled ? '#ffff00' : '#888888';
             }
         });
 
@@ -751,16 +1734,18 @@
                     bullets.push(new Bullet(
                         player.x + player.width / 6,
                         player.y + 5,
-                        bulletSpeed * 0.8,
+                        Math.abs(bulletSpeed) * 0.8,
                         '#ffff00',
-                        'powerShot'
+                        'powerShot',
+                        -0.3
                     ));
                     bullets.push(new Bullet(
                         player.x + player.width * 5/6,
                         player.y + 5,
-                        bulletSpeed * 0.8,
+                        Math.abs(bulletSpeed) * 0.8,
                         '#ffff00',
-                        'powerShot'
+                        'powerShot',
+                        0.3
                     ));
                 }
             } else {
@@ -772,21 +1757,23 @@
                     bulletType
                 ));
                 
-                // 如果有快速射击但没有双倍射击，发射三连发
+                // 如果有快速射击但没有双倍射击，发射扇形三连发
                 if (hasRapidFire) {
                     bullets.push(new Bullet(
-                        player.x + player.width / 3 - 1.5,
+                        player.x + player.width / 2,
                         player.y + 3,
-                        bulletSpeed * 0.9,
+                        Math.abs(bulletSpeed) * 0.9,
                         '#ffff00',
-                        'powerShot'
+                        'powerShot',
+                        -0.25
                     ));
                     bullets.push(new Bullet(
-                        player.x + player.width * 2/3 - 1.5,
+                        player.x + player.width / 2,
                         player.y + 3,
-                        bulletSpeed * 0.9,
+                        Math.abs(bulletSpeed) * 0.9,
                         '#ffff00',
-                        'powerShot'
+                        'powerShot',
+                        0.25
                     ));
                 }
             }
@@ -798,11 +1785,18 @@
             let type = 'normal';
             const rand = Math.random();
             
+            // 根据关卡调整敌机类型概率
+            const levelFactor = Math.min(gameState.level / 10, 1); // 关卡影响因子
+            
             // 移除随机生成Boss的逻辑，Boss只能通过击杀20个敌机后强制生成
-            if (rand < 0.2) {
+            if (rand < 0.15) {
                 type = 'fast';
-            } else if (rand < 0.35) {
+            } else if (rand < 0.25) {
                 type = 'heavy';
+            } else if (rand < 0.35 + levelFactor * 0.1) {
+                type = 'armored'; // 装甲敌机，高关卡更常见
+            } else if (rand < 0.45) {
+                type = 'scout'; // 侦察机
             }
             
             enemies.push(new Enemy(x, -50, type));
@@ -873,30 +1867,73 @@
         function createExplosion(x, y, type = 'normal') {
             let particleCount = 15;
             let colors = ['#ff6600', '#ffaa00', '#ff0000'];
+            let particleType = 'normal';
             
             switch(type) {
                 case 'bullet':
                     particleCount = 8;
                     colors = ['#00ffff', '#ffffff', '#0088ff'];
+                    particleType = 'normal';
                     break;
                 case 'boss':
-                    particleCount = 25;
-                    colors = ['#ff0000', '#ff6600', '#ffaa00', '#ffffff'];
+                    // Boss蜘蛛女王 - 毒液和蛛网效果
+                    particleCount = 30;
+                    colors = ['#8b0000', '#ff0000', '#800080', '#000000'];
+                    particleType = 'honey'; // 使用蜂蜜效果模拟毒液
                     break;
                 case 'powerShot':
                     particleCount = 12;
                     colors = ['#ffff00', '#ffaa00', '#ffffff'];
+                    particleType = 'pollen';
+                    break;
+                case 'armored':
+                    // 装甲甲虫 - 甲壳碎片
+                    particleCount = 20;
+                    colors = ['#654321', '#8b4513', '#a0522d'];
+                    particleType = 'normal';
+                    break;
+                case 'scout':
+                    // 侦察蜻蜓 - 翅膀碎片
+                    particleCount = 18;
+                    colors = ['#00ced1', '#40e0d0', '#48d1cc'];
+                    particleType = 'petal'; // 使用花瓣效果模拟翅膀
+                    break;
+                case 'fast':
+                    // 快速黄蜂 - 花粉爆炸
+                    particleCount = 16;
+                    colors = ['#ffd700', '#ffff00', '#ffa500'];
+                    particleType = 'pollen';
+                    break;
+                case 'heavy':
+                    // 重型独角仙 - 土壤和甲壳
+                    particleCount = 22;
+                    colors = ['#8b4513', '#a0522d', '#d2691e'];
+                    particleType = 'normal';
+                    break;
+                case 'normal':
+                    // 普通蚂蚁 - 花瓣飞散
+                    particleCount = 12;
+                    colors = ['#ff69b4', '#ff1493', '#ffc0cb'];
+                    particleType = 'petal';
                     break;
             }
             
             for (let i = 0; i < particleCount; i++) {
-                particles.push(new Particle(x, y, colors[Math.floor(Math.random() * colors.length)]));
+                particles.push(new Particle(x, y, colors[Math.floor(Math.random() * colors.length)], particleType));
             }
         }
 
         // 更新游戏逻辑
         function update() {
             if (gameState.gameOver) return;
+
+            // 处理无敌时间
+            if (gameState.invulnerable && gameState.invulnerableTime > 0) {
+                gameState.invulnerableTime--;
+                if (gameState.invulnerableTime <= 0) {
+                    gameState.invulnerable = false;
+                }
+            }
 
             // 玩家移动
             if (gameState.keys['a'] && player.x > 0) {
@@ -948,7 +1985,20 @@
             // 更新敌机
             enemies = enemies.filter(enemy => {
                 enemy.update();
-                return enemy.y < canvas.height + 50;
+                
+                // 根据敌机行为状态决定移除条件
+                switch(enemy.behaviorState) {
+                    case 'retreating':
+                    case 'escaping':
+                        // 撤退和逃跑的敌机从屏幕顶部消失
+                        return enemy.y > -enemy.height;
+                    case 'passing':
+                        // 穿越型敌机从屏幕底部消失
+                        return enemy.y < canvas.height + 50;
+                    default:
+                        // 其他敌机正常从屏幕底部消失
+                        return enemy.y < canvas.height + 50;
+                }
             });
 
             // 更新道具
@@ -986,8 +2036,7 @@
                             }
                             
                             // 根据敌机类型创建不同的爆炸效果
-                            const enemyExplosionType = enemy.type === 'boss' ? 'boss' : 'normal';
-                            createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemyExplosionType);
+                            createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemy.type);
                             
                             // 计算得分
                             let points = 10;
@@ -1036,7 +2085,7 @@
 
             // 敌机子弹与玩家碰撞
             enemyBullets.forEach((bullet, bulletIndex) => {
-                if (checkCollision(bullet, player)) {
+                if (checkCollision(bullet, player) && !gameState.invulnerable) {
                     enemyBullets.splice(bulletIndex, 1);
                     
                     // 护盾效果
@@ -1052,6 +2101,9 @@
                             gameState.gameOver = true;
                             gameOverElement.style.display = 'block';
                             finalScoreElement.textContent = gameState.score;
+                        } else {
+                            // 玩家重生效果
+                            respawnPlayer();
                         }
                     }
                 }
@@ -1059,7 +2111,7 @@
 
             // 敌机与玩家碰撞
             enemies.forEach((enemy, enemyIndex) => {
-                if (checkCollision(enemy, player)) {
+                if (checkCollision(enemy, player) && !gameState.invulnerable) {
                     enemies.splice(enemyIndex, 1);
                     
                     // 护盾效果
@@ -1075,6 +2127,9 @@
                             gameState.gameOver = true;
                             gameOverElement.style.display = 'block';
                             finalScoreElement.textContent = gameState.score;
+                        } else {
+                            // 玩家重生效果
+                            respawnPlayer();
                         }
                     }
                 }
@@ -1108,14 +2163,62 @@
                 ctx.fillRect(x, y, 1, 1);
             }
 
-            // 绘制玩家
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.width, player.height);
+            // 绘制玩家 - 小蜜蜂风格战斗机
+            ctx.save();
             
-            // 绘制玩家细节
+            // 无敌状态闪烁效果
+            if (gameState.invulnerable) {
+                const flashRate = Math.floor(Date.now() / 100) % 2; // 每100ms闪烁一次
+                if (flashRate === 0) {
+                    ctx.globalAlpha = 0.5; // 半透明效果
+                }
+            }
+            
+            // 主机身
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x + 15, player.y, 20, 35);
+            
+            // 机头
+            ctx.fillStyle = '#00aa00';
+            ctx.beginPath();
+            ctx.moveTo(player.x + 25, player.y - 5);
+            ctx.lineTo(player.x + 20, player.y + 5);
+            ctx.lineTo(player.x + 30, player.y + 5);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 主翼
+            ctx.fillStyle = '#008800';
+            ctx.fillRect(player.x + 5, player.y + 12, 40, 8);
+            
+            // 副翼
+            ctx.fillStyle = '#006600';
+            ctx.fillRect(player.x + 10, player.y + 25, 30, 6);
+            
+            // 驾驶舱
+            ctx.fillStyle = '#00ffff';
+            ctx.fillRect(player.x + 22, player.y + 8, 6, 8);
+            
+            // 武器系统
+            ctx.fillStyle = '#ffff00';
+            ctx.fillRect(player.x + 12, player.y + 18, 3, 8);
+            ctx.fillRect(player.x + 35, player.y + 18, 3, 8);
+            
+            // 引擎尾焰
+            if (gameState.keys['w'] || gameState.keys['s'] || gameState.keys['a'] || gameState.keys['d']) {
+                ctx.fillStyle = '#ff6600';
+                ctx.fillRect(player.x + 18, player.y + 35, 4, 8);
+                ctx.fillRect(player.x + 28, player.y + 35, 4, 8);
+                ctx.fillStyle = '#ffff00';
+                ctx.fillRect(player.x + 19, player.y + 36, 2, 6);
+                ctx.fillRect(player.x + 29, player.y + 36, 2, 6);
+            }
+            
+            // 机身细节线条
             ctx.fillStyle = '#ffffff';
-            ctx.fillRect(player.x + 20, player.y + 5, 10, 5);
-            ctx.fillRect(player.x + 10, player.y + 15, 30, 5);
+            ctx.fillRect(player.x + 24, player.y + 2, 2, 30);
+            
+            ctx.restore();
             
             // 绘制护盾效果
             const hasShield = gameState.activePowerUps.some(p => p.type === 'shield');
@@ -1144,6 +2247,66 @@
             particles.forEach(particle => particle.draw());
         }
 
+        // 玩家重生函数
+        function respawnPlayer() {
+            // 玩家消失效果 - 设置为屏幕外
+            player.y = canvas.height + 50;
+            player.x = canvas.width / 2 - 25;
+            
+            // 创建重生粒子效果
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x: player.x + player.width / 2,
+                    y: canvas.height - 20,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: Math.random() * -5 - 2,
+                    life: 60,
+                    maxLife: 60,
+                    color: '#00ff00',
+                    size: Math.random() * 4 + 2,
+                    draw() {
+                        ctx.save();
+                        ctx.globalAlpha = this.life / this.maxLife;
+                        ctx.fillStyle = this.color;
+                        ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+                        ctx.restore();
+                    },
+                    update() {
+                        this.x += this.vx;
+                        this.y += this.vy;
+                        this.life--;
+                        return this.life > 0;
+                    }
+                });
+            }
+            
+            // 设置重生动画
+            let respawnTimer = 0;
+            const respawnDuration = 60; // 1秒重生时间
+            
+            function respawnAnimation() {
+                respawnTimer++;
+                
+                // 玩家从底部向上移动
+                const progress = respawnTimer / respawnDuration;
+                const targetY = canvas.height - 80;
+                player.y = canvas.height + 50 - (canvas.height + 50 - targetY) * Math.min(progress, 1);
+                
+                // 重生完成
+                if (respawnTimer >= respawnDuration) {
+                    player.y = targetY;
+                    // 给予短暂无敌时间
+                    gameState.invulnerable = true;
+                    gameState.invulnerableTime = 120; // 2秒无敌时间
+                    return;
+                }
+                
+                requestAnimationFrame(respawnAnimation);
+            }
+            
+            respawnAnimation();
+        }
+
         // 重新开始游戏
         function restartGame() {
             gameState.score = 0;
@@ -1155,6 +2318,8 @@
             gameState.activePowerUps = []; // 清空所有激活的道具
             gameState.totalEnemiesKilled = 0;
             gameState.bossSpawnCount = 20;
+            gameState.invulnerable = false; // 重置无敌状态
+            gameState.invulnerableTime = 0; // 重置无敌时间
             bullets = [];
             enemyBullets = [];
             enemies = [];
