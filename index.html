@@ -15,16 +15,24 @@
             min-height: 100vh;
             font-family: Arial, sans-serif;
         }
+        .game-container {
+            position: relative;
+        }
         canvas {
             border: 2px solid #fff;
             background: linear-gradient(to bottom, #001122, #003366);
         }
         .game-info {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
             color: #fff;
-            font-size: 18px;
+            font-size: 16px;
+            display: flex;
+            gap: 25px;
+            align-items: center;
+            z-index: 10;
         }
         .game-over {
             position: absolute;
@@ -38,49 +46,47 @@
         }
         .controls {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
+            bottom: 15px;
+            left: 15px;
             color: #fff;
             font-size: 14px;
+            z-index: 10;
         }
         .level-info {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            color: #fff;
-            font-size: 18px;
+            display: none;
         }
         .power-up {
             position: absolute;
-            top: 50px;
-            left: 10px;
+            top: 75px;
+            left: 15px;
             color: #00ff00;
             font-size: 14px;
+            z-index: 10;
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <div class="game-info">
-        <div>得分: <span id="score">0</span></div>
-        <div>生命: <span id="lives">3</span></div>
-    </div>
-    <div class="game-over" id="gameOver">
-        <h2>游戏结束!</h2>
-        <p>最终得分: <span id="finalScore">0</span></p>
-        <p>按空格键重新开始</p>
-    </div>
-    <div class="controls">
-        <p>控制: WASD移动, 空格键射击, M键开关音效</p>
-    </div>
-    <div class="level-info">
-        <div>关卡: <span id="level">1</span></div>
-        <div>敌机: <span id="enemiesLeft">0</span></div>
-        <div>Boss倒计时: <span id="bossCountdown">20</span></div>
-    </div>
-    <div class="power-up">
-        <div id="powerUpStatus"></div>
-        <div id="audioStatus" style="margin-top: 10px; color: #ffff00;">音效: 开启</div>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="game-info">
+             <div>得分: <span id="score">0</span></div>
+             <div>生命: <span id="lives">3</span></div>
+             <div>关卡: <span id="level">1</span></div>
+             <div>敌机: <span id="enemiesLeft">0</span></div>
+             <div>Boss倒计时: <span id="bossCountdown">20</span></div>
+         </div>
+        <div class="game-over" id="gameOver">
+            <h2>游戏结束!</h2>
+            <p>最终得分: <span id="finalScore">0</span></p>
+            <p>按空格键重新开始</p>
+        </div>
+        <div class="controls">
+             <p>控制: WASD移动, 空格键射击, M键开关音效</p>
+         </div>
+        <div class="power-up">
+            <div id="powerUpStatus"></div>
+            <div id="audioStatus" style="margin-top: 10px; color: #ffff00;">音效: 开启</div>
+        </div>
     </div>
 
     <script>
@@ -141,7 +147,7 @@
             constructor() {
                 this.audioContext = null;
                 this.sounds = {};
-                this.musicVolume = 0.3;
+                this.musicVolume = 0.6;
                 this.sfxVolume = 0.5;
                 this.enabled = true;
                 this.init();
