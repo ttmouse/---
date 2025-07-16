@@ -350,11 +350,9 @@
                         this.height = 12;
                         this.color = '#00ffff';
                         this.glowColor = '#00ffff';
-                        // 玩家子弹向上发射
-                        if (angle === 0) {
-                            this.vy = -Math.abs(speed);
-                            this.vx = 0;
-                        }
+                        // 玩家子弹向上发射，修正速度向量
+                        this.vx = Math.sin(angle) * Math.abs(speed);
+                        this.vy = -Math.cos(angle) * Math.abs(speed);
                         break;
                     case 'enemy':
                     case 'normal':
@@ -428,22 +426,18 @@
                         this.height = 15;
                         this.color = '#ffff00';
                         this.glowColor = '#ffaa00';
-                        // 强化子弹向上发射
-                        if (angle === 0) {
-                            this.vy = -Math.abs(speed);
-                            this.vx = 0;
-                        }
+                        // 强化子弹向上发射，修正速度向量
+                        this.vx = Math.sin(angle) * Math.abs(speed);
+                        this.vy = -Math.cos(angle) * Math.abs(speed);
                         break;
                     case 'upgraded':
                         this.width = 4;
                         this.height = 14;
                         this.color = color || '#00ff80';
                         this.glowColor = color || '#00ff80';
-                        // 升级子弹向上发射
-                        if (angle === 0) {
-                            this.vy = -Math.abs(speed);
-                            this.vx = 0;
-                        }
+                        // 升级子弹向上发射，修正速度向量
+                        this.vx = Math.sin(angle) * Math.abs(speed);
+                        this.vy = -Math.cos(angle) * Math.abs(speed);
                         break;
                 }
             }
@@ -972,8 +966,8 @@
                 switch(type) {
                     case 'boss':
                         this.color = '#ff0000';
-                        this.health = 5;
-                        this.maxHealth = 5;
+                        this.health = 25;
+                        this.maxHealth = 25;
                         this.width = 80;
                         this.height = 60;
                         this.speed = 0.5;
@@ -981,6 +975,8 @@
                         this.behaviorState = 'hovering';
                         this.targetY = 100; // Boss悬停在屏幕上方
                         this.hoverTime = 600; // 悬停10秒
+                        this.phase = 1; // Boss阶段：1-3
+                        this.phaseChangeTimer = 0; // 阶段变化动画计时器
                         break;
                     case 'fast':
                         this.color = '#00ffff';
@@ -1045,6 +1041,11 @@
             update() {
                 this.lifeTimer++;
                 
+                // Boss阶段变化动画计时器
+                if (this.type === 'boss' && this.phaseChangeTimer > 0) {
+                    this.phaseChangeTimer--;
+                }
+                
                 // 根据行为状态执行不同的移动逻辑
                 switch(this.behaviorState) {
                     case 'normal':
@@ -1079,7 +1080,10 @@
                     if (this.shootTimer >= this.shootInterval) {
                         this.shoot();
                         this.shootTimer = 0;
-                        this.shootInterval = 60 + Math.random() * 120;
+                        // Boss的射击间隔不随机化，保持固定
+                        if (this.type !== 'boss') {
+                            this.shootInterval = 60 + Math.random() * 120;
+                        }
                     }
                 }
             }
@@ -1150,6 +1154,35 @@
                 this.health--;
                 this.hitFlash = 10; // 闪烁10帧
                 
+                // Boss阶段变化逻辑
+                if (this.type === 'boss') {
+                    const healthPercent = this.health / this.maxHealth;
+                    let newPhase = this.phase;
+                    
+                    if (healthPercent <= 0.33 && this.phase < 3) {
+                        newPhase = 3; // 第三阶段：血量低于33%
+                    } else if (healthPercent <= 0.66 && this.phase < 2) {
+                        newPhase = 2; // 第二阶段：血量低于66%
+                    }
+                    
+                    if (newPhase !== this.phase) {
+                        this.phase = newPhase;
+                        this.phaseChangeTimer = 60; // 阶段变化动画持续1秒
+                        
+                        // 根据阶段调整属性
+                        switch(this.phase) {
+                            case 2:
+                                this.shootInterval = 20; // 射击更频繁
+                                this.speed = 0.8; // 移动更快
+                                break;
+                            case 3:
+                                this.shootInterval = 15; // 射击非常频繁
+                                this.speed = 1.2; // 移动很快
+                                break;
+                        }
+                    }
+                }
+                
                 // 侦察机受到攻击后逃跑
                 if (this.type === 'scout' && !this.escapeTriggered) {
                     this.behaviorState = 'escaping';
@@ -1188,18 +1221,63 @@
                 }
                 
                 if (this.type === 'boss') {
-                    // Boss发射扇形多发子弹，以朝向玩家为中心
-                    const baseAngles = [-0.4, -0.2, 0, 0.2, 0.4]; // 扇形角度偏移
-                    baseAngles.forEach(offset => {
-                        enemyBullets.push(new Bullet(
-                            this.x + this.width / 2,
-                            this.y + this.height,
-                            4,
-                            '#ff0000',
-                            'boss',
-                            angleToPlayer + offset
-                        ));
-                    });
+                    // 根据Boss阶段发射不同的攻击模式
+                    switch(this.phase) {
+                        case 1:
+                            // 第一阶段：基础扇形攻击（减少到3发）
+                            const baseAngles = [-0.3, 0, 0.3];
+                            baseAngles.forEach(offset => {
+                                enemyBullets.push(new Bullet(
+                                    this.x + this.width / 2,
+                                    this.y + this.height,
+                                    4,
+                                    '#ff0000',
+                                    'boss',
+                                    angleToPlayer + offset
+                                ));
+                            });
+                            break;
+                        case 2:
+                            // 第二阶段：扇形攻击（减少到5发）
+                            const phase2Angles = [-0.4, -0.2, 0, 0.2, 0.4];
+                            phase2Angles.forEach(offset => {
+                                enemyBullets.push(new Bullet(
+                                    this.x + this.width / 2,
+                                    this.y + this.height,
+                                    5,
+                                    '#ff4400',
+                                    'boss',
+                                    angleToPlayer + offset
+                                ));
+                            });
+                            break;
+                        case 3:
+                            // 第三阶段：强化攻击（减少到5发扇形+4发螺旋）
+                            const phase3Angles = [-0.5, -0.25, 0, 0.25, 0.5];
+                            phase3Angles.forEach(offset => {
+                                enemyBullets.push(new Bullet(
+                                    this.x + this.width / 2,
+                                    this.y + this.height,
+                                    6,
+                                    '#ff0044',
+                                    'boss',
+                                    angleToPlayer + offset
+                                ));
+                            });
+                            // 螺旋攻击（减少到4发）
+                            for (let i = 0; i < 4; i++) {
+                                const spiralAngle = (this.lifeTimer * 0.1) + (i * Math.PI / 2);
+                                enemyBullets.push(new Bullet(
+                                    this.x + this.width / 2,
+                                    this.y + this.height,
+                                    4,
+                                    '#ff6600',
+                                    'boss',
+                                    spiralAngle
+                                ));
+                            }
+                            break;
+                    }
                 } else if (this.type === 'fast') {
                     // 快速敌机发射单发，精准朝向玩家
                     enemyBullets.push(new Bullet(
@@ -1274,45 +1352,98 @@
                 const isFlashing = this.hitFlash > 0 && this.hitFlash % 4 < 2;
                 
                 if (this.type === 'boss') {
-                    // Boss - 蜘蛛女王风格
-                    ctx.fillStyle = isFlashing ? '#ffffff' : '#aa0000';
+                    // Boss - 根据阶段变化外形
+                    let bodyColor, headColor, eyeColor, legColor, fangColor, patternColor;
                     
-                    // 腹部（主体）
-                    ctx.fillRect(this.x + this.width/4, this.y + this.height/4, this.width/2, this.height/2);
+                    if (this.phase === 1) {
+                        // 第一阶段 - 蜘蛛女王（红色）
+                        bodyColor = isFlashing ? '#ffffff' : '#aa0000';
+                        headColor = isFlashing ? '#ffffff' : '#880000';
+                        eyeColor = isFlashing ? '#000000' : '#ffff00';
+                        legColor = isFlashing ? '#ffffff' : '#660000';
+                        fangColor = isFlashing ? '#000000' : '#ffffff';
+                        patternColor = isFlashing ? '#000000' : '#ff4444';
+                    } else if (this.phase === 2) {
+                        // 第二阶段 - 变异蜘蛛（紫色，更大更凶猛）
+                        bodyColor = isFlashing ? '#ffffff' : '#8800aa';
+                        headColor = isFlashing ? '#ffffff' : '#660088';
+                        eyeColor = isFlashing ? '#000000' : '#ff00ff';
+                        legColor = isFlashing ? '#ffffff' : '#440066';
+                        fangColor = isFlashing ? '#000000' : '#ffff00';
+                        patternColor = isFlashing ? '#000000' : '#cc44ff';
+                    } else {
+                        // 第三阶段 - 终极形态（黑红色，最凶猛）
+                        bodyColor = isFlashing ? '#ffffff' : '#000000';
+                        headColor = isFlashing ? '#ffffff' : '#440000';
+                        eyeColor = isFlashing ? '#000000' : '#ff0000';
+                        legColor = isFlashing ? '#ffffff' : '#220000';
+                        fangColor = isFlashing ? '#000000' : '#ff0000';
+                        patternColor = isFlashing ? '#000000' : '#ff0000';
+                    }
+                    
+                    // 腹部（主体）- 根据阶段调整大小
+                    const sizeMultiplier = 1 + (this.phase - 1) * 0.1;
+                    ctx.fillStyle = bodyColor;
+                    ctx.fillRect(this.x + this.width/4, this.y + this.height/4, this.width/2 * sizeMultiplier, this.height/2 * sizeMultiplier);
                     
                     // 头胸部
-                    ctx.fillStyle = isFlashing ? '#ffffff' : '#880000';
-                    ctx.fillRect(this.x + this.width/3, this.y, this.width/3, this.height/3);
+                    ctx.fillStyle = headColor;
+                    ctx.fillRect(this.x + this.width/3, this.y, this.width/3 * sizeMultiplier, this.height/3);
                     
-                    // 多只眼睛
-                    ctx.fillStyle = isFlashing ? '#000000' : '#ffff00';
-                    for (let i = 0; i < 6; i++) {
-                        const eyeX = this.x + this.width/3 + (i % 3) * 6;
-                        const eyeY = this.y + 5 + Math.floor(i / 3) * 4;
+                    // 多只眼睛 - 第三阶段增加更多眼睛
+                    ctx.fillStyle = eyeColor;
+                    const eyeCount = this.phase === 3 ? 8 : 6;
+                    for (let i = 0; i < eyeCount; i++) {
+                        const eyeX = this.x + this.width/3 + (i % (this.phase === 3 ? 4 : 3)) * 5;
+                        const eyeY = this.y + 5 + Math.floor(i / (this.phase === 3 ? 4 : 3)) * 4;
                         ctx.fillRect(eyeX, eyeY, 2, 2);
                     }
                     
-                    // 蜘蛛腿（8条）
-                    ctx.fillStyle = isFlashing ? '#ffffff' : '#660000';
-                    for (let i = 0; i < 4; i++) {
-                        const legY = this.y + this.height/4 + i * 8;
+                    // 蜘蛛腿 - 根据阶段调整数量和长度
+                    ctx.fillStyle = legColor;
+                    const legCount = this.phase === 3 ? 6 : 4;
+                    const legLength = 8 + this.phase * 2;
+                    for (let i = 0; i < legCount; i++) {
+                        const legY = this.y + this.height/4 + i * (this.phase === 3 ? 6 : 8);
                         // 左侧腿
-                        ctx.fillRect(this.x - 8, legY, 12, 2);
-                        ctx.fillRect(this.x - 12, legY + 2, 8, 2);
+                        ctx.fillRect(this.x - legLength, legY, legLength + 4, 2);
+                        ctx.fillRect(this.x - legLength - 4, legY + 2, legLength, 2);
                         // 右侧腿
-                        ctx.fillRect(this.x + this.width - 4, legY, 12, 2);
-                        ctx.fillRect(this.x + this.width + 4, legY + 2, 8, 2);
+                        ctx.fillRect(this.x + this.width - 4, legY, legLength + 4, 2);
+                        ctx.fillRect(this.x + this.width + 4, legY + 2, legLength, 2);
                     }
                     
-                    // 毒牙
-                    ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
-                    ctx.fillRect(this.x + this.width/2 - 3, this.y + this.height/3 - 2, 2, 8);
-                    ctx.fillRect(this.x + this.width/2 + 1, this.y + this.height/3 - 2, 2, 8);
+                    // 毒牙 - 第二阶段开始增大
+                    ctx.fillStyle = fangColor;
+                    const fangSize = this.phase === 1 ? 8 : this.phase === 2 ? 12 : 16;
+                    ctx.fillRect(this.x + this.width/2 - 3, this.y + this.height/3 - 2, 2, fangSize);
+                    ctx.fillRect(this.x + this.width/2 + 1, this.y + this.height/3 - 2, 2, fangSize);
                     
-                    // 腹部花纹
-                    ctx.fillStyle = isFlashing ? '#000000' : '#ff4444';
-                    ctx.fillRect(this.x + this.width/3, this.y + this.height/3, this.width/3, 3);
-                    ctx.fillRect(this.x + this.width/3, this.y + this.height/2, this.width/3, 3);
+                    // 腹部花纹 - 根据阶段变化
+                    ctx.fillStyle = patternColor;
+                    if (this.phase === 1) {
+                        ctx.fillRect(this.x + this.width/3, this.y + this.height/3, this.width/3, 3);
+                        ctx.fillRect(this.x + this.width/3, this.y + this.height/2, this.width/3, 3);
+                    } else if (this.phase === 2) {
+                        // 第二阶段 - 更复杂的花纹
+                        for (let i = 0; i < 4; i++) {
+                            ctx.fillRect(this.x + this.width/4, this.y + this.height/3 + i * 4, this.width/2, 2);
+                        }
+                    } else {
+                        // 第三阶段 - 骷髅花纹
+                        ctx.fillRect(this.x + this.width/3, this.y + this.height/3, this.width/3, 2);
+                        ctx.fillRect(this.x + this.width/3, this.y + this.height/2, this.width/3, 2);
+                        ctx.fillRect(this.x + this.width/2 - 4, this.y + this.height/3 + 4, 8, 2);
+                        ctx.fillRect(this.x + this.width/2 - 6, this.y + this.height/2 + 4, 12, 2);
+                    }
+                    
+                    // 阶段变化特效
+                    if (this.phaseChangeTimer > 0) {
+                        ctx.fillStyle = this.phase === 2 ? '#ff00ff' : '#ff0000';
+                        ctx.globalAlpha = 0.3 + Math.sin(this.phaseChangeTimer * 0.3) * 0.3;
+                        ctx.fillRect(this.x - 10, this.y - 10, this.width + 20, this.height + 20);
+                        ctx.globalAlpha = 1;
+                    }
                     
                     // 绘制Boss血量条
                     const barWidth = this.width;
@@ -1781,6 +1912,21 @@
         const normalShootInterval = 10;
         const rapidShootInterval = 5;
         
+        // 根据子弹等级计算射击间隔
+        function getShootInterval() {
+            const bulletLevel = gameState.bulletLevel || 0;
+            const hasRapidFire = gameState.activePowerUps.some(p => p.type === 'rapidFire');
+            
+            let baseInterval = normalShootInterval;
+            if (hasRapidFire) {
+                baseInterval = rapidShootInterval;
+            }
+            
+            // 子弹等级越高，射击间隔越短
+            const levelReduction = Math.min(bulletLevel * 2, 6); // 最多减少6帧
+            return Math.max(baseInterval - levelReduction, 2); // 最快每2帧射击一次
+        }
+        
         // 启动音频上下文（需要用户交互）
         function initAudio() {
             if (audioManager.audioContext && audioManager.audioContext.state === 'suspended') {
@@ -1850,31 +1996,32 @@
                 bulletSpeed = -10;
             }
             
-            // 基础散射模式 - 一开始就发射三发子弹
+            // 基础散射模式 - 一开始就发射三发子弹，真正散开
             bullets.push(new Bullet(
-                player.x + player.width / 2 - 1.5,
+                player.x + player.width / 2,
                 player.y,
                 bulletSpeed,
                 bulletColor,
-                bulletType
+                bulletType,
+                0 // 中间直射
             ));
             
-            // 左右散射子弹 - 基础模式就有
+            // 左右散射子弹 - 从发射点就开始散开
             bullets.push(new Bullet(
-                player.x + player.width / 4,
-                player.y + 5,
-                bulletSpeed * 0.9,
+                player.x + player.width / 2 - 8,
+                player.y,
+                bulletSpeed * 0.95,
                 bulletColor,
                 bulletType,
-                -0.15
+                -0.2 // 左散射
             ));
             bullets.push(new Bullet(
-                player.x + player.width * 3/4,
-                player.y + 5,
-                bulletSpeed * 0.9,
+                player.x + player.width / 2 + 8,
+                player.y,
+                bulletSpeed * 0.95,
                 bulletColor,
                 bulletType,
-                0.15
+                0.2 // 右散射
             ));
             
             // 根据子弹升级等级添加更多子弹
@@ -2156,8 +2303,7 @@
             
             // 处理射击
             shootTimer++;
-            const hasRapidFire = gameState.activePowerUps.some(p => p.type === 'rapidFire');
-            const currentShootInterval = hasRapidFire ? rapidShootInterval : normalShootInterval;
+            const currentShootInterval = getShootInterval();
             
             if (gameState.keys['j'] && shootTimer >= currentShootInterval) {
                 shoot();
@@ -2481,6 +2627,9 @@
 
         // 玩家重生函数
         function respawnPlayer() {
+            // 重置子弹等级
+            gameState.bulletLevel = 0;
+            
             // 玩家消失效果 - 设置为屏幕外
             player.y = canvas.height + 50;
             player.x = canvas.width / 2 - 25;
@@ -2552,6 +2701,7 @@
             gameState.bossSpawnCount = 20;
             gameState.invulnerable = false; // 重置无敌状态
             gameState.invulnerableTime = 0; // 重置无敌时间
+            gameState.bulletLevel = 0; // 重置子弹等级
             bullets = [];
             enemyBullets = [];
             enemies = [];
