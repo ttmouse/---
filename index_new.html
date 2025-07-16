@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小蜜蜂游戏</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="game-info">
+             <div>得分: <span id="score">0</span></div>
+             <div>生命: <span id="lives">3</span></div>
+             <div>关卡: <span id="level">1</span></div>
+             <div>敌机: <span id="enemiesLeft">0</span></div>
+             <div>Boss倒计时: <span id="bossCountdown">20</span></div>
+         </div>
+        <div class="game-over" id="gameOver">
+            <h2>游戏结束!</h2>
+            <p>最终得分: <span id="finalScore">0</span></p>
+            <p>按空格键重新开始</p>
+        </div>
+        <div class="controls">
+             <p>控制: WASD移动, J键射击, K键跟踪导弹, M键开关音效</p>
+         </div>
+        <div class="power-up">
+            <div id="powerUpStatus"></div>
+            <div id="audioStatus" style="margin-top: 10px; color: #ffff00;">音效: 开启</div>
+        </div>
+    </div>
+
+    <!-- 引入JavaScript文件 -->
+    <script src="audio.js"></script>
+    <script src="particle.js"></script>
+    <script src="bullet.js"></script>
+    <script src="enemy.js"></script>
+    <script src="powerup.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
