@@ -411,10 +411,13 @@
                         }
                         break;
                     case 'boss':
-                        this.width = 8;
-                        this.height = 15;
-                        this.color = '#ff0000';
-                        this.glowColor = '#ff6600';
+                    case 'boss_normal':
+                    case 'boss_poison':
+                    case 'boss_pierce':
+                        this.width = 10;
+                        this.height = 18;
+                        this.color = type === 'boss_poison' ? '#00ff00' : type === 'boss_pierce' ? '#ff00ff' : '#ff0000';
+                        this.glowColor = type === 'boss_poison' ? '#00cc00' : type === 'boss_pierce' ? '#cc00cc' : '#ff6600';
                         // Boss子弹 - 最大最威猛
                         if (angle === 0) {
                             this.vy = Math.abs(speed);
@@ -422,8 +425,8 @@
                         }
                         break;
                     case 'powerShot':
-                        this.width = 5;
-                        this.height = 15;
+                        this.width = 8;
+                        this.height = 18;
                         this.color = '#ffff00';
                         this.glowColor = '#ffaa00';
                         // 强化子弹向上发射，修正速度向量
@@ -431,8 +434,8 @@
                         this.vy = -Math.cos(angle) * Math.abs(speed);
                         break;
                     case 'upgraded':
-                        this.width = 4;
-                        this.height = 14;
+                        this.width = 6;
+                        this.height = 16;
                         this.color = color || '#00ff80';
                         this.glowColor = color || '#00ff80';
                         // 升级子弹向上发射，修正速度向量
@@ -969,9 +972,8 @@
                         this.health = 25;
                         this.maxHealth = 25;
                         this.width = 80;
-                        this.height = 60;
-                        this.speed = 0.5;
-                        this.shootInterval = 30;
+                        this.height = 60;                        this.speed = 0.5;
+                        this.shootInterval = 60; // Boss初始射击间隔更慢
                         this.behaviorState = 'hovering';
                         this.targetY = 100; // Boss悬停在屏幕上方
                         this.hoverTime = 600; // 悬停10秒
@@ -1172,11 +1174,11 @@
                         // 根据阶段调整属性
                         switch(this.phase) {
                             case 2:
-                                this.shootInterval = 20; // 射击更频繁
+                                this.shootInterval = 40; // 射击频率适中
                                 this.speed = 0.8; // 移动更快
                                 break;
                             case 3:
-                                this.shootInterval = 15; // 射击非常频繁
+                                this.shootInterval = 30; // 射击较频繁
                                 this.speed = 1.2; // 移动很快
                                 break;
                         }
@@ -1224,55 +1226,73 @@
                     // 根据Boss阶段发射不同的攻击模式
                     switch(this.phase) {
                         case 1:
-                            // 第一阶段：基础扇形攻击（减少到3发）
-                            const baseAngles = [-0.3, 0, 0.3];
+                            // 第一阶段：普通子弹（可被抵消）+ 毒液弹（不可抵消）
+                            const baseAngles = [-0.2, 0, 0.2];
                             baseAngles.forEach(offset => {
                                 enemyBullets.push(new Bullet(
                                     this.x + this.width / 2,
                                     this.y + this.height,
                                     4,
                                     '#ff0000',
-                                    'boss',
+                                    'boss_normal', // 可被抵消的普通Boss子弹
                                     angleToPlayer + offset
                                 ));
                             });
+                            // 添加毒液弹（不可抵消）
+                            enemyBullets.push(new Bullet(
+                                this.x + this.width / 2,
+                                this.y + this.height,
+                                3,
+                                '#00ff00',
+                                'boss_poison', // 不可抵消的毒液弹
+                                angleToPlayer
+                            ));
                             break;
                         case 2:
-                            // 第二阶段：扇形攻击（减少到5发）
-                            const phase2Angles = [-0.4, -0.2, 0, 0.2, 0.4];
+                            // 第二阶段：普通扇形攻击 + 穿透弹（不可抵消）
+                            const phase2Angles = [-0.3, -0.15, 0.15, 0.3];
                             phase2Angles.forEach(offset => {
                                 enemyBullets.push(new Bullet(
                                     this.x + this.width / 2,
                                     this.y + this.height,
                                     5,
                                     '#ff4400',
-                                    'boss',
+                                    'boss_normal',
                                     angleToPlayer + offset
                                 ));
                             });
+                            // 添加穿透弹（不可抵消）
+                            enemyBullets.push(new Bullet(
+                                this.x + this.width / 2,
+                                this.y + this.height,
+                                4,
+                                '#ffff00',
+                                'boss_pierce', // 不可抵消的穿透弹
+                                angleToPlayer
+                            ));
                             break;
                         case 3:
-                            // 第三阶段：强化攻击（减少到5发扇形+4发螺旋）
-                            const phase3Angles = [-0.5, -0.25, 0, 0.25, 0.5];
+                            // 第三阶段：混合攻击模式
+                            const phase3Angles = [-0.4, -0.2, 0.2, 0.4];
                             phase3Angles.forEach(offset => {
                                 enemyBullets.push(new Bullet(
                                     this.x + this.width / 2,
                                     this.y + this.height,
                                     6,
                                     '#ff0044',
-                                    'boss',
+                                    'boss_normal',
                                     angleToPlayer + offset
                                 ));
                             });
-                            // 螺旋攻击（减少到4发）
-                            for (let i = 0; i < 4; i++) {
-                                const spiralAngle = (this.lifeTimer * 0.1) + (i * Math.PI / 2);
+                            // 螺旋毒液弹（不可抵消）
+                            for (let i = 0; i < 3; i++) {
+                                const spiralAngle = (this.lifeTimer * 0.1) + (i * Math.PI * 2 / 3);
                                 enemyBullets.push(new Bullet(
                                     this.x + this.width / 2,
                                     this.y + this.height,
-                                    4,
-                                    '#ff6600',
-                                    'boss',
+                                    3,
+                                    '#00ff00',
+                                    'boss_poison',
                                     spiralAngle
                                 ));
                             }
@@ -1468,134 +1488,272 @@
                     
                     switch(this.type) {
                         case 'armored':
-                            // 装甲敌机 - 甲虫风格
-                            ctx.fillStyle = isFlashing ? '#ffffff' : '#444444';
-                            ctx.fillRect(this.x + 3, this.y + 2, this.width - 6, this.height - 4);
+                            // 装甲敌机 - 犀牛甲虫风格
+                            // 主体甲壳 - 椭圆形
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#2d4a22';
+                            ctx.fillRect(this.x + 2, this.y + 3, this.width - 4, this.height - 6);
                             
-                            // 甲壳
-                            ctx.fillStyle = isFlashing ? '#000000' : '#666666';
-                            ctx.fillRect(this.x + 5, this.y + 4, this.width - 10, this.height - 8);
+                            // 头部甲壳
+                            ctx.fillStyle = isFlashing ? '#000000' : '#1a2d15';
+                            ctx.fillRect(this.x + this.width/4, this.y, this.width/2, 8);
                             
-                            // 甲壳纹理
-                            ctx.fillStyle = isFlashing ? '#ffffff' : '#888888';
-                            ctx.fillRect(this.x + 8, this.y + 6, this.width - 16, 2);
-                            ctx.fillRect(this.x + 8, this.y + 10, this.width - 16, 2);
-                            ctx.fillRect(this.x + 8, this.y + 14, this.width - 16, 2);
+                            // 甲壳光泽条纹
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#4a6b3a';
+                            ctx.fillRect(this.x + 4, this.y + 5, this.width - 8, 1);
+                            ctx.fillRect(this.x + 6, this.y + 8, this.width - 12, 1);
+                            ctx.fillRect(this.x + 4, this.y + 11, this.width - 8, 1);
                             
-                            // 触角
-                            ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
-                            ctx.fillRect(this.x + this.width/2 - 4, this.y - 1, 2, 4);
-                            ctx.fillRect(this.x + this.width/2 + 2, this.y - 1, 2, 4);
+                            // 犀牛角
+                            ctx.fillStyle = isFlashing ? '#000000' : '#8b4513';
+                            ctx.fillRect(this.x + this.width/2 - 1, this.y - 4, 2, 6);
+                            ctx.fillRect(this.x + this.width/2 - 2, this.y - 2, 4, 2);
                             
-                            // 腿部
-                            ctx.fillStyle = isFlashing ? '#ffffff' : '#222222';
+                            // 复眼
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#ff4500';
+                            ctx.fillRect(this.x + this.width/2 - 4, this.y + 2, 2, 2);
+                            ctx.fillRect(this.x + this.width/2 + 2, this.y + 2, 2, 2);
+                            
+                            // 触角 - 弯曲状
+                            ctx.fillStyle = isFlashing ? '#000000' : '#654321';
+                            ctx.fillRect(this.x + this.width/2 - 6, this.y - 1, 1, 3);
+                            ctx.fillRect(this.x + this.width/2 - 7, this.y - 2, 2, 1);
+                            ctx.fillRect(this.x + this.width/2 + 5, this.y - 1, 1, 3);
+                            ctx.fillRect(this.x + this.width/2 + 5, this.y - 2, 2, 1);
+                            
+                            // 六条腿 - 更真实的节肢动物腿
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#1a1a1a';
                             for (let i = 0; i < 3; i++) {
-                                ctx.fillRect(this.x, this.y + 4 + i * 4, 3, 1);
-                                ctx.fillRect(this.x + this.width - 3, this.y + 4 + i * 4, 3, 1);
+                                const legY = this.y + 6 + i * 4;
+                                // 左腿
+                                ctx.fillRect(this.x - 2, legY, 4, 1);
+                                ctx.fillRect(this.x - 3, legY + 1, 2, 1);
+                                // 右腿
+                                ctx.fillRect(this.x + this.width - 2, legY, 4, 1);
+                                ctx.fillRect(this.x + this.width + 1, legY + 1, 2, 1);
                             }
                             break;
                             
                         case 'scout':
                             // 侦察机 - 蜻蜓风格
-                            ctx.fillStyle = isFlashing ? '#ffffff' : '#00cc66';
-                            ctx.fillRect(this.x + 6, this.y + 4, this.width - 12, this.height - 8);
+                            // 细长身体 - 蜻蜓特征
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#228b22';
+                            ctx.fillRect(this.x + this.width/2 - 2, this.y + 2, 4, this.height - 4);
                             
-                            // 翅膀
-                            ctx.fillStyle = isFlashing ? '#000000' : '#00ff88';
-                            ctx.fillRect(this.x, this.y + 6, 5, 2);
-                            ctx.fillRect(this.x + this.width - 5, this.y + 6, 5, 2);
-                            ctx.fillRect(this.x + 1, this.y + 9, 5, 2);
-                            ctx.fillRect(this.x + this.width - 6, this.y + 9, 5, 2);
+                            // 头部 - 大复眼
+                            ctx.fillStyle = isFlashing ? '#000000' : '#32cd32';
+                            ctx.fillRect(this.x + this.width/2 - 4, this.y, 8, 6);
                             
-                            // 触角
-                            ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
-                            ctx.fillRect(this.x + this.width/2 - 1, this.y, 2, 4);
+                            // 巨大复眼
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#ff6347';
+                            ctx.fillRect(this.x + this.width/2 - 6, this.y + 1, 3, 3);
+                            ctx.fillRect(this.x + this.width/2 + 3, this.y + 1, 3, 3);
                             
-                            // 复眼
-                            ctx.fillStyle = isFlashing ? '#ffffff' : '#ff0000';
-                            ctx.fillRect(this.x + this.width/2 - 3, this.y + 5, 2, 2);
-                            ctx.fillRect(this.x + this.width/2 + 1, this.y + 5, 2, 2);
+                            // 复眼细节
+                            ctx.fillStyle = isFlashing ? '#000000' : '#8b0000';
+                            ctx.fillRect(this.x + this.width/2 - 5, this.y + 2, 1, 1);
+                            ctx.fillRect(this.x + this.width/2 + 4, this.y + 2, 1, 1);
+                            
+                            // 四片透明翅膀
+                            const wingFlutter = this.behaviorState === 'escaping' ? Math.sin(this.lifeTimer * 0.5) * 2 : 0;
+                            ctx.fillStyle = isFlashing ? '#000000' : 'rgba(173, 216, 230, 0.7)';
+                            // 上翅膀
+                            ctx.fillRect(this.x - 6, this.y + 4 + wingFlutter, 8, 3);
+                            ctx.fillRect(this.x + this.width - 2, this.y + 4 + wingFlutter, 8, 3);
+                            // 下翅膀
+                            ctx.fillRect(this.x - 5, this.y + 8 - wingFlutter, 7, 3);
+                            ctx.fillRect(this.x + this.width - 2, this.y + 8 - wingFlutter, 7, 3);
+                            
+                            // 翅膀纹理
+                            ctx.strokeStyle = isFlashing ? '#ffffff' : '#4682b4';
+                            ctx.lineWidth = 0.5;
+                            ctx.strokeRect(this.x - 6, this.y + 4 + wingFlutter, 8, 3);
+                            ctx.strokeRect(this.x + this.width - 2, this.y + 4 + wingFlutter, 8, 3);
+                            
+                            // 短触角
+                            ctx.fillStyle = isFlashing ? '#000000' : '#006400';
+                            ctx.fillRect(this.x + this.width/2 - 3, this.y - 1, 1, 2);
+                            ctx.fillRect(this.x + this.width/2 + 2, this.y - 1, 1, 2);
+                            
+                            // 身体分节
+                            ctx.fillStyle = isFlashing ? '#000000' : '#006400';
+                            for (let i = 0; i < 4; i++) {
+                                ctx.fillRect(this.x + this.width/2 - 2, this.y + 6 + i * 3, 4, 1);
+                            }
                             
                             if (this.behaviorState === 'escaping') {
                                 // 逃跑时翅膀快速振动效果
                                 ctx.fillStyle = '#ffff00';
-                                ctx.fillRect(this.x - 2, this.y + 5, this.width + 4, 1);
-                                ctx.fillRect(this.x - 2, this.y + 10, this.width + 4, 1);
+                                ctx.fillRect(this.x - 8, this.y + 3, this.width + 16, 1);
+                                ctx.fillRect(this.x - 8, this.y + 10, this.width + 16, 1);
                             }
                             break;
                             
                         case 'fast':
-                            // 快速敌机 - 黄蜂风格
-                            ctx.fillStyle = isFlashing ? '#ffffff' : '#ffaa00';
-                            ctx.fillRect(this.x + 4, this.y, this.width - 8, this.height);
+                            // 快速敌机 - 胡蜂风格
+                            // 胡蜂身体 - 细腰设计
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#ffd700';
+                            ctx.fillRect(this.x + 6, this.y + 2, this.width - 12, 6); // 胸部
+                            ctx.fillRect(this.x + 4, this.y + 10, this.width - 8, this.height - 12); // 腹部
                             
-                            // 黄黑条纹
+                            // 细腰连接
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#ffb347';
+                            ctx.fillRect(this.x + this.width/2 - 1, this.y + 8, 2, 2);
+                            
+                            // 黄黑警告条纹
                             ctx.fillStyle = isFlashing ? '#ffffff' : '#000000';
                             for (let i = 0; i < 3; i++) {
-                                ctx.fillRect(this.x + 6, this.y + 3 + i * 4, this.width - 12, 1);
+                                ctx.fillRect(this.x + 5, this.y + 11 + i * 3, this.width - 10, 1);
                             }
                             
-                            // 翅膀
-                            ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
-                            ctx.fillRect(this.x, this.y + 4, 4, 6);
-                            ctx.fillRect(this.x + this.width - 4, this.y + 4, 4, 6);
+                            // 头部
+                            ctx.fillStyle = isFlashing ? '#000000' : '#ffb347';
+                            ctx.fillRect(this.x + this.width/2 - 3, this.y, 6, 4);
+                            
+                            // 复眼
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#8b0000';
+                            ctx.fillRect(this.x + this.width/2 - 4, this.y + 1, 2, 2);
+                            ctx.fillRect(this.x + this.width/2 + 2, this.y + 1, 2, 2);
+                            
+                            // 触角
+                            ctx.fillStyle = isFlashing ? '#000000' : '#654321';
+                            ctx.fillRect(this.x + this.width/2 - 2, this.y - 1, 1, 2);
+                            ctx.fillRect(this.x + this.width/2 + 1, this.y - 1, 1, 2);
+                            
+                            // 透明翅膀 - 快速振动
+                            const wingBlur = Math.sin(this.lifeTimer * 0.8) * 1;
+                            ctx.fillStyle = isFlashing ? '#000000' : 'rgba(255, 255, 255, 0.6)';
+                            ctx.fillRect(this.x - 2, this.y + 3 + wingBlur, 6, 4);
+                            ctx.fillRect(this.x + this.width - 4, this.y + 3 + wingBlur, 6, 4);
+                            
+                            // 翅膀纹理
+                            ctx.strokeStyle = isFlashing ? '#ffffff' : '#ddd';
+                            ctx.lineWidth = 0.5;
+                            ctx.strokeRect(this.x - 2, this.y + 3, 6, 4);
+                            ctx.strokeRect(this.x + this.width - 4, this.y + 3, 6, 4);
+                            
+                            // 六条腿
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#8b4513';
+                            for (let i = 0; i < 3; i++) {
+                                const legY = this.y + 4 + i * 2;
+                                ctx.fillRect(this.x + 2, legY, 2, 1);
+                                ctx.fillRect(this.x + this.width - 4, legY, 2, 1);
+                            }
                             
                             // 毒刺
                             ctx.fillStyle = isFlashing ? '#000000' : '#ff0000';
-                            ctx.fillRect(this.x + this.width/2 - 1, this.y + this.height, 2, 3);
+                            ctx.fillRect(this.x + this.width/2 - 1, this.y + this.height, 2, 4);
+                            ctx.fillRect(this.x + this.width/2 - 0.5, this.y + this.height + 2, 1, 2);
                             break;
                             
                         case 'heavy':
-                            // 重型敌机 - 独角仙风格
-                            ctx.fillStyle = isFlashing ? '#ffffff' : '#4400aa';
-                            ctx.fillRect(this.x + 2, this.y, this.width - 4, this.height);
+                            // 重型敌机 - 锹甲虫风格
+                            // 厚重甲壳主体
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#2f1b14';
+                            ctx.fillRect(this.x + 1, this.y + 2, this.width - 2, this.height - 4);
                             
-                            // 甲壳
-                            ctx.fillStyle = isFlashing ? '#000000' : '#6622cc';
-                            ctx.fillRect(this.x + 4, this.y + 2, this.width - 8, this.height - 4);
+                            // 头部甲壳
+                            ctx.fillStyle = isFlashing ? '#000000' : '#1a0f0a';
+                            ctx.fillRect(this.x + 3, this.y, this.width - 6, 8);
                             
-                            // 甲壳纹理
-                            ctx.fillStyle = isFlashing ? '#ffffff' : '#8844ee';
-                            ctx.fillRect(this.x + 6, this.y + 4, this.width - 12, 2);
-                            ctx.fillRect(this.x + 6, this.y + 8, this.width - 12, 2);
+                            // 甲壳光泽
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#8b4513';
+                            ctx.fillRect(this.x + 3, this.y + 4, this.width - 6, 1);
+                            ctx.fillRect(this.x + 5, this.y + 7, this.width - 10, 1);
+                            ctx.fillRect(this.x + 3, this.y + 10, this.width - 6, 1);
                             
-                            // 独角
-                            ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
-                            ctx.fillRect(this.x + this.width/2 - 1, this.y - 3, 2, 5);
+                            // 巨大锹甲 - 分叉设计
+                            ctx.fillStyle = isFlashing ? '#000000' : '#654321';
+                            ctx.fillRect(this.x + this.width/2 - 1, this.y - 6, 2, 8);
+                            // 锹甲分叉
+                            ctx.fillRect(this.x + this.width/2 - 3, this.y - 4, 2, 1);
+                            ctx.fillRect(this.x + this.width/2 + 1, this.y - 4, 2, 1);
+                            ctx.fillRect(this.x + this.width/2 - 4, this.y - 3, 1, 2);
+                            ctx.fillRect(this.x + this.width/2 + 3, this.y - 3, 1, 2);
                             
-                            // 腿部
-                            ctx.fillStyle = isFlashing ? '#ffffff' : '#220066';
+                            // 小复眼
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#ff4500';
+                            ctx.fillRect(this.x + this.width/2 - 3, this.y + 2, 1, 1);
+                            ctx.fillRect(this.x + this.width/2 + 2, this.y + 2, 1, 1);
+                            
+                            // 触角 - 锯齿状
+                            ctx.fillStyle = isFlashing ? '#000000' : '#8b4513';
                             for (let i = 0; i < 3; i++) {
-                                ctx.fillRect(this.x, this.y + 3 + i * 3, 2, 1);
-                                ctx.fillRect(this.x + this.width - 2, this.y + 3 + i * 3, 2, 1);
+                                ctx.fillRect(this.x + this.width/2 - 5 - i, this.y - 1 + i, 1, 1);
+                                ctx.fillRect(this.x + this.width/2 + 4 + i, this.y - 1 + i, 1, 1);
+                            }
+                            
+                            // 强壮的六条腿
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#2f1b14';
+                            for (let i = 0; i < 3; i++) {
+                                const legY = this.y + 5 + i * 4;
+                                // 左腿 - 更粗壮
+                                ctx.fillRect(this.x - 3, legY, 5, 2);
+                                ctx.fillRect(this.x - 4, legY + 2, 3, 1);
+                                // 右腿
+                                ctx.fillRect(this.x + this.width - 2, legY, 5, 2);
+                                ctx.fillRect(this.x + this.width + 1, legY + 2, 3, 1);
+                            }
+                            
+                            // 甲壳边缘锯齿
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#654321';
+                            for (let i = 0; i < 5; i++) {
+                                ctx.fillRect(this.x + 2 + i * 6, this.y + 1, 1, 1);
+                                ctx.fillRect(this.x + 2 + i * 6, this.y + this.height - 2, 1, 1);
                             }
                             break;
                             
                         default:
-                            // 普通敌机 - 蚂蚁风格
-                            ctx.fillStyle = isFlashing ? '#ffffff' : '#cc4400';
-                            ctx.fillRect(this.x + 6, this.y + 2, this.width - 12, this.height - 4);
+                            // 普通敌机 - 工蚁风格
+                            // 蚂蚁头部 - 较大
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#8b4513';
+                            ctx.fillRect(this.x + this.width/2 - 4, this.y, 8, 7);
                             
-                            // 头部
-                            ctx.fillStyle = isFlashing ? '#000000' : '#aa3300';
-                            ctx.fillRect(this.x + this.width/2 - 3, this.y, 6, 6);
+                            // 胸部 - 中等大小
+                            ctx.fillStyle = isFlashing ? '#000000' : '#a0522d';
+                            ctx.fillRect(this.x + this.width/2 - 3, this.y + 6, 6, 6);
                             
-                            // 触角
+                            // 腹部 - 最大
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#8b4513';
+                            ctx.fillRect(this.x + this.width/2 - 5, this.y + 11, 10, this.height - 13);
+                            
+                            // 复眼
                             ctx.fillStyle = isFlashing ? '#ffffff' : '#000000';
-                            ctx.fillRect(this.x + this.width/2 - 2, this.y - 1, 1, 3);
-                            ctx.fillRect(this.x + this.width/2 + 1, this.y - 1, 1, 3);
+                            ctx.fillRect(this.x + this.width/2 - 3, this.y + 2, 1, 1);
+                            ctx.fillRect(this.x + this.width/2 + 2, this.y + 2, 1, 1);
                             
-                            // 腿部
-                            ctx.fillStyle = isFlashing ? '#000000' : '#884422';
-                            for (let i = 0; i < 2; i++) {
-                                ctx.fillRect(this.x + 2, this.y + 6 + i * 3, 3, 1);
-                                ctx.fillRect(this.x + this.width - 5, this.y + 6 + i * 3, 3, 1);
+                            // 弯曲触角 - 蚂蚁特征
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#654321';
+                            ctx.fillRect(this.x + this.width/2 - 2, this.y - 1, 1, 3);
+                            ctx.fillRect(this.x + this.width/2 - 3, this.y - 2, 2, 1);
+                            ctx.fillRect(this.x + this.width/2 + 1, this.y - 1, 1, 3);
+                            ctx.fillRect(this.x + this.width/2 + 1, this.y - 2, 2, 1);
+                            
+                            // 强壮的大颚
+                            ctx.fillStyle = isFlashing ? '#000000' : '#2f1b14';
+                            ctx.fillRect(this.x + this.width/2 - 1, this.y + 5, 2, 2);
+                            
+                            // 六条腿 - 蚂蚁特有的强壮腿
+                            ctx.fillStyle = isFlashing ? '#000000' : '#654321';
+                            for (let i = 0; i < 3; i++) {
+                                const legY = this.y + 7 + i * 3;
+                                // 左腿 - 多节
+                                ctx.fillRect(this.x + 1, legY, 3, 1);
+                                ctx.fillRect(this.x - 1, legY + 1, 2, 1);
+                                // 右腿
+                                ctx.fillRect(this.x + this.width - 4, legY, 3, 1);
+                                ctx.fillRect(this.x + this.width - 1, legY + 1, 2, 1);
                             }
                             
-                            // 身体分节
-                            ctx.fillStyle = isFlashing ? '#000000' : '#ffffff';
-                            ctx.fillRect(this.x + 8, this.y + 6, this.width - 16, 1);
-                            ctx.fillRect(this.x + 8, this.y + 9, this.width - 16, 1);
+                            // 身体分节线 - 蚂蚁特征
+                            ctx.fillStyle = isFlashing ? '#000000' : '#2f1b14';
+                            ctx.fillRect(this.x + this.width/2 - 4, this.y + 6, 8, 1); // 头胸分界
+                            ctx.fillRect(this.x + this.width/2 - 3, this.y + 11, 6, 1); // 胸腹分界
+                            
+                            // 腹部条纹
+                            ctx.fillStyle = isFlashing ? '#ffffff' : '#654321';
+                            for (let i = 0; i < 2; i++) {
+                                ctx.fillRect(this.x + this.width/2 - 4, this.y + 14 + i * 3, 8, 1);
+                            }
                             break;
                     }
                     
@@ -2026,7 +2184,25 @@
             
             // 根据子弹升级等级添加更多子弹
             if (bulletLevel >= 2) {
-                // 等级2+：添加更多斜向子弹
+                // 等级2+：增加正前方弹道和斜向子弹
+                // 额外的正前方子弹
+                bullets.push(new Bullet(
+                    player.x + player.width / 2 - 3,
+                    player.y - 5,
+                    bulletSpeed * 1.1,
+                    bulletColor,
+                    bulletType,
+                    0 // 正前方
+                ));
+                bullets.push(new Bullet(
+                    player.x + player.width / 2 + 3,
+                    player.y - 5,
+                    bulletSpeed * 1.1,
+                    bulletColor,
+                    bulletType,
+                    0 // 正前方
+                ));
+                // 斜向子弹
                 bullets.push(new Bullet(
                     player.x + player.width / 8,
                     player.y + 8,
@@ -2046,7 +2222,25 @@
             }
             
             if (bulletLevel >= 3) {
-                // 等级3：添加更多极端角度的斜向子弹
+                // 等级3：更多正前方弹道和极端角度的斜向子弹
+                // 更多正前方子弹
+                bullets.push(new Bullet(
+                    player.x + player.width / 2 - 6,
+                    player.y - 8,
+                    bulletSpeed * 1.15,
+                    bulletColor,
+                    bulletType,
+                    0 // 正前方
+                ));
+                bullets.push(new Bullet(
+                    player.x + player.width / 2 + 6,
+                    player.y - 8,
+                    bulletSpeed * 1.15,
+                    bulletColor,
+                    bulletType,
+                    0 // 正前方
+                ));
+                // 极端角度的斜向子弹
                 bullets.push(new Bullet(
                     player.x,
                     player.y + 10,
@@ -2438,8 +2632,15 @@
             bullets.forEach((playerBullet, playerBulletIndex) => {
                 enemyBullets.forEach((enemyBullet, enemyBulletIndex) => {
                     if (checkCollision(playerBullet, enemyBullet)) {
-                        // 只有特殊类型的敌机子弹可以被打掉
-                        if (enemyBullet.type === 'boss' || enemyBullet.type === 'heavy' || enemyBullet.type === 'armored') {
+                        // 只有特定类型的敌机子弹可以被打掉
+                        // Boss的毒液弹(boss_poison)和穿透弹(boss_pierce)不能被抵消
+                        const canBeDestroyed = (
+                            enemyBullet.type === 'boss_normal' || 
+                            enemyBullet.type === 'heavy' || 
+                            enemyBullet.type === 'armored'
+                        );
+                        
+                        if (canBeDestroyed) {
                             // 播放子弹碰撞音效
                             audioManager.play('hit');
                             
@@ -2541,7 +2742,7 @@
                 ctx.fillRect(x, y, 1, 1);
             }
 
-            // 绘制玩家 - 小蜜蜂风格战斗机
+            // 绘制玩家 - 蜜蜂
             ctx.save();
             
             // 无敌状态闪烁效果
@@ -2552,49 +2753,70 @@
                 }
             }
             
-            // 主机身
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x + 15, player.y, 20, 35);
+            // 蜜蜂身体（腹部）- 黄黑条纹
+            ctx.fillStyle = '#ffdd00';
+            ctx.fillRect(player.x + 18, player.y + 8, 14, 20);
             
-            // 机头
-            ctx.fillStyle = '#00aa00';
-            ctx.beginPath();
-            ctx.moveTo(player.x + 25, player.y - 5);
-            ctx.lineTo(player.x + 20, player.y + 5);
-            ctx.lineTo(player.x + 30, player.y + 5);
-            ctx.closePath();
-            ctx.fill();
+            // 黑色条纹
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(player.x + 18, player.y + 10, 14, 2);
+            ctx.fillRect(player.x + 18, player.y + 15, 14, 2);
+            ctx.fillRect(player.x + 18, player.y + 20, 14, 2);
+            ctx.fillRect(player.x + 18, player.y + 25, 14, 2);
             
-            // 主翼
-            ctx.fillStyle = '#008800';
-            ctx.fillRect(player.x + 5, player.y + 12, 40, 8);
+            // 蜜蜂头部
+            ctx.fillStyle = '#ffaa00';
+            ctx.fillRect(player.x + 20, player.y, 10, 10);
             
-            // 副翼
-            ctx.fillStyle = '#006600';
-            ctx.fillRect(player.x + 10, player.y + 25, 30, 6);
+            // 蜜蜂眼睛
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(player.x + 22, player.y + 2, 2, 2);
+            ctx.fillRect(player.x + 26, player.y + 2, 2, 2);
             
-            // 驾驶舱
-            ctx.fillStyle = '#00ffff';
-            ctx.fillRect(player.x + 22, player.y + 8, 6, 8);
+            // 触角
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(player.x + 23, player.y - 2, 1, 3);
+            ctx.fillRect(player.x + 26, player.y - 2, 1, 3);
+            ctx.fillRect(player.x + 22, player.y - 3, 2, 1);
+            ctx.fillRect(player.x + 26, player.y - 3, 2, 1);
             
-            // 武器系统
-            ctx.fillStyle = '#ffff00';
-            ctx.fillRect(player.x + 12, player.y + 18, 3, 8);
-            ctx.fillRect(player.x + 35, player.y + 18, 3, 8);
+            // 翅膀（透明效果）
+            const wingFlap = Math.sin(Date.now() * 0.02) * 2; // 翅膀振动效果
+            ctx.fillStyle = 'rgba(200, 200, 255, 0.6)';
+            // 左翅膀
+            ctx.fillRect(player.x + 8 + wingFlap, player.y + 5, 12, 18);
+            ctx.fillRect(player.x + 5 + wingFlap, player.y + 8, 8, 12);
+            // 右翅膀
+            ctx.fillRect(player.x + 30 - wingFlap, player.y + 5, 12, 18);
+            ctx.fillRect(player.x + 37 - wingFlap, player.y + 8, 8, 12);
             
-            // 引擎尾焰
+            // 翅膀纹理
+            ctx.fillStyle = 'rgba(150, 150, 200, 0.4)';
+            ctx.fillRect(player.x + 10 + wingFlap, player.y + 7, 8, 1);
+            ctx.fillRect(player.x + 10 + wingFlap, player.y + 12, 8, 1);
+            ctx.fillRect(player.x + 10 + wingFlap, player.y + 17, 8, 1);
+            ctx.fillRect(player.x + 32 - wingFlap, player.y + 7, 8, 1);
+            ctx.fillRect(player.x + 32 - wingFlap, player.y + 12, 8, 1);
+            ctx.fillRect(player.x + 32 - wingFlap, player.y + 17, 8, 1);
+            
+            // 蜜蜂腿
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(player.x + 16, player.y + 12, 1, 4);
+            ctx.fillRect(player.x + 33, player.y + 12, 1, 4);
+            ctx.fillRect(player.x + 16, player.y + 18, 1, 4);
+            ctx.fillRect(player.x + 33, player.y + 18, 1, 4);
+            ctx.fillRect(player.x + 16, player.y + 24, 1, 4);
+            ctx.fillRect(player.x + 33, player.y + 24, 1, 4);
+            
+            // 移动时的尾迹效果（花粉）
             if (gameState.keys['w'] || gameState.keys['s'] || gameState.keys['a'] || gameState.keys['d']) {
-                ctx.fillStyle = '#ff6600';
-                ctx.fillRect(player.x + 18, player.y + 35, 4, 8);
-                ctx.fillRect(player.x + 28, player.y + 35, 4, 8);
                 ctx.fillStyle = '#ffff00';
-                ctx.fillRect(player.x + 19, player.y + 36, 2, 6);
-                ctx.fillRect(player.x + 29, player.y + 36, 2, 6);
+                for (let i = 0; i < 3; i++) {
+                    const offsetX = (Math.random() - 0.5) * 6;
+                    const offsetY = Math.random() * 8;
+                    ctx.fillRect(player.x + 23 + offsetX, player.y + 30 + offsetY, 2, 2);
+                }
             }
-            
-            // 机身细节线条
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(player.x + 24, player.y + 2, 2, 30);
             
             ctx.restore();
             
