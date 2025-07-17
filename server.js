@@ -84,22 +84,45 @@ app.post('/api/update-bullets', async (req, res) => {
                             `$1${config.height}`
                         );
                         
-                        // 更新color
-                        updatedBlock = updatedBlock.replace(
-                            /(this\.color\s*=\s*(?:color\s*\|\|\s*)?['"])(#[a-fA-F0-9]{6})(['"])/g,
-                            `$1${config.color}$3`
-                        );
-                        
-                        // 更新glowColor
-                        updatedBlock = updatedBlock.replace(
-                            /(this\.glowColor\s*=\s*['"])(#[a-fA-F0-9]{6})(['"])/g,
-                            `$1${config.glowColor}$3`
-                        );
+                        // 更新color - 处理powerShot和upgraded的特殊情况
+                        if (['powerShot', 'upgraded'].includes(type)) {
+                            // 这些类型使用 this.color = color; 的形式，需要替换为具体的颜色值
+                            updatedBlock = updatedBlock.replace(
+                                /(this\.color\s*=\s*color;)/g,
+                                `this.color = '${config.color}';`
+                            );
+                            updatedBlock = updatedBlock.replace(
+                                /(this\.glowColor\s*=\s*color;)/g,
+                                `this.glowColor = '${config.glowColor}';`
+                            );
+                            // 同时处理可能存在的直接颜色赋值
+                            updatedBlock = updatedBlock.replace(
+                                /(this\.color\s*=\s*['"])([#a-fA-F0-9]{6})(['"];)/g,
+                                `this.color = '${config.color}';`
+                            );
+                            updatedBlock = updatedBlock.replace(
+                                /(this\.glowColor\s*=\s*['"])([#a-fA-F0-9]{6})(['"];)/g,
+                                `this.glowColor = '${config.glowColor}';`
+                            );
+                        } else {
+                            // 其他类型的常规处理
+                            updatedBlock = updatedBlock.replace(
+                                /(this\.color\s*=\s*(?:color\s*\|\|\s*)?['"])(#[a-fA-F0-9]{6})(['"])/g,
+                                `$1${config.color}$3`
+                            );
+                            
+                            updatedBlock = updatedBlock.replace(
+                                /(this\.glowColor\s*=\s*['"])(#[a-fA-F0-9]{6})(['"])/g,
+                                `$1${config.glowColor}$3`
+                            );
+                        }
                         
                         // 替换原始块
                         content = content.replace(caseBlock, updatedBlock);
                         console.log(`已更新单独case块: ${type}`);
                     });
+                } else {
+                    console.log(`警告: 未找到子弹类型 ${type} 的case语句`);
                 }
             }
             

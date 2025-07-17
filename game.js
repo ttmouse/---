@@ -16,7 +16,9 @@ const gameState = {
     // 保护光圈系统
     protectionShields: 3, // 最多存储3个
     protectionCooldown: 0, // CD计时器
-    protectionCooldownMax: 600 // 10秒 = 600帧 (60fps)
+    protectionCooldownMax: 600, // 10秒 = 600帧 (60fps)
+    // 自动射击系统
+    autoShoot: false // 自动射击开关
 };
 
 // 游戏对象数组
@@ -83,6 +85,13 @@ document.addEventListener('keydown', (e) => {
     // K键触发保护光圈
     if (e.key.toLowerCase() === 'k') {
         activateProtectionRing();
+    }
+    
+    // J键切换自动射击
+    if (e.key.toLowerCase() === 'j') {
+        gameState.autoShoot = !gameState.autoShoot;
+        // 播放切换音效
+        audioManager.play('powerUp');
     }
     
     // 测试功能（数字键）
@@ -222,12 +231,15 @@ function shoot() {
     
     // 如果有快速射击，发射更强大的扇形弹幕
     if (hasRapidFire) {
+        // 使用powerShot的配置颜色，如果没有配置则使用默认颜色
+        const powerShotColor = '#00ff88'; // powerShot的默认颜色
+        
         // 中间角度的强化子弹
         bullets.push(new Bullet(
             player.x + player.width / 2 - 5,
             player.y + 3,
             bulletSpeed * 0.95,
-            '#ffff00',
+            powerShotColor,
             'powerShot',
             -0.15
         ));
@@ -235,7 +247,7 @@ function shoot() {
             player.x + player.width / 2 + 5,
             player.y + 3,
             bulletSpeed * 0.95,
-            '#ffff00',
+            powerShotColor,
             'powerShot',
             0.15
         ));
@@ -245,7 +257,7 @@ function shoot() {
             player.x + player.width / 4,
             player.y + 5,
             bulletSpeed * 0.9,
-            '#ffff00',
+            powerShotColor,
             'powerShot',
             -0.3
         ));
@@ -253,7 +265,7 @@ function shoot() {
             player.x + player.width * 3/4,
             player.y + 5,
             bulletSpeed * 0.9,
-            '#ffff00',
+            powerShotColor,
             'powerShot',
             0.3
         ));
@@ -279,8 +291,8 @@ function shootTracking() {
         0
     ));
     
-    // 根据子弹等级延迟发射额外导弹
-    if (bulletLevel >= 2) {
+    // 根据子弹等级延迟发射额外导弹，最多6枚
+    if (bulletLevel >= 1) {
         // 2级：延迟发射第二枚导弹
         setTimeout(() => {
             bullets.push(new Bullet(
@@ -293,7 +305,7 @@ function shootTracking() {
             ));
         }, 100); // 100ms延迟
         
-        if (bulletLevel >= 3) {
+        if (bulletLevel >= 1) {
             // 3级：延迟发射第三枚导弹
             setTimeout(() => {
                 bullets.push(new Bullet(
@@ -306,6 +318,48 @@ function shootTracking() {
                 ));
             }, 200); // 200ms延迟
         }
+        
+        if (bulletLevel >= 1) {
+            // 4级：延迟发射第四枚导弹
+            setTimeout(() => {
+                bullets.push(new Bullet(
+                    playerCenterX - 25,
+                    playerY + 10,
+                    -12,
+                    '#ff4400',
+                    'tracking',
+                    -0.15
+                ));
+            }, 300); // 300ms延迟
+        }
+        
+        if (bulletLevel >= 1) {
+            // 5级：延迟发射第五枚导弹
+            setTimeout(() => {
+                bullets.push(new Bullet(
+                    playerCenterX + 25,
+                    playerY + 10,
+                    -12,
+                    '#ff4400',
+                    'tracking',
+                    0.15
+                ));
+            }, 400); // 400ms延迟
+        }
+        
+        if (bulletLevel >= 1) {
+            // 6级：延迟发射第六枚导弹
+            setTimeout(() => {
+                bullets.push(new Bullet(
+                    playerCenterX,
+                    playerY + 15,
+                    -12,
+                    '#ff4400',
+                    'tracking',
+                    0
+                ));
+            }, 500); // 500ms延迟
+        }
     }
 }
 
@@ -317,7 +371,7 @@ class ProtectionRing {
         this.radius = 10; // 初始半径
         this.maxRadius = 400; // 最大半径，能覆盖全屏幕
         this.expandSpeed = 8; // 扩散速度提升一倍
-        this.damage = 150; // 攻击力，确保能一击杀死Boss
+        this.damage = 50; // 攻击力，对Boss造成1/3伤害，对普通敌人仍然是秒杀
         this.active = true;
     }
     
@@ -466,7 +520,7 @@ function activatePowerUp(type) {
             break;
         case 'bulletUpgrade':
             // 子弹升级是永久性的，每次拾取增加一级
-            gameState.bulletLevel = Math.min((gameState.bulletLevel || 0) + 1, 3);
+            gameState.bulletLevel = Math.min((gameState.bulletLevel || 0) + 1, 5);
             break;
     }
     updatePowerUpDisplay();
@@ -611,7 +665,8 @@ function update() {
     shootTimer++;
     const currentShootInterval = getShootInterval();
     
-    if (gameState.keys['j'] && shootTimer >= currentShootInterval) {
+    // 自动射击或手动射击
+    if ((gameState.autoShoot || gameState.keys['j']) && shootTimer >= currentShootInterval) {
         shoot();
         shootTimer = 0;
     }
@@ -773,7 +828,10 @@ function update() {
                     enemyBullet.type === 'enemy' ||
                     enemyBullet.type === 'normal' ||
                     enemyBullet.type === 'fast' ||
-                    enemyBullet.type === 'scout'
+                    enemyBullet.type === 'scout' ||
+                    enemyBullet.type === 'piercing' ||
+                    enemyBullet.type === 'venom' ||
+                    enemyBullet.type === 'spiral'
                 );
                 const canBeDestroyed = isEllipticalBullet;
                 
@@ -1098,6 +1156,16 @@ function draw() {
         ctx.fillText(`CD: ${cdSeconds}s`, 220, canvas.height - 60);
     }
     
+    // 显示自动射击状态
+    ctx.fillStyle = gameState.autoShoot ? '#00ff00' : '#ff6666';
+    ctx.font = '16px Arial';
+    ctx.fillText('自动射击: ', 10, canvas.height - 30);
+    ctx.fillStyle = gameState.autoShoot ? '#00ff00' : '#ff6666';
+    ctx.fillText(gameState.autoShoot ? '开启' : '关闭', 110, canvas.height - 30);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px Arial';
+    ctx.fillText('(按J键切换)', 160, canvas.height - 30);
+    
     ctx.restore();
 }
 
@@ -1180,6 +1248,7 @@ function restartGame() {
     gameState.protectionCooldown = 0; // 重置保护光圈CD
     gameState.invulnerableTime = 0; // 重置无敌时间
     gameState.bulletLevel = 1; // 重置子弹等级为1级
+    gameState.autoShoot = false; // 重置自动射击状态
     bullets = [];
     enemyBullets = [];
     enemies = [];

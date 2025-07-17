@@ -75,7 +75,8 @@ class Bullet {
                 // 优先使用传入的颜色
                 this.color = color;
                 this.glowColor = color;
-                // Boss不可抵消子弹 - 圆形，支持角度射击（体积缩小到70%）
+                // 穿透子弹 - 椭圆形，支持角度射击，可被抵消，快速旋转
+                this.rotationSpeed = 0.3; // 增加旋转速度
                 this.vx = Math.sin(angle) * speed;
                 this.vy = Math.cos(angle) * speed;
                 break;
@@ -92,13 +93,14 @@ class Bullet {
                 this.vy = Math.cos(angle) * speed;
                 break;
             case 'powerShot':
-                this.width = 14;
+                this.width = 9;
                 this.height = 28;
-                this.color = color;
-                this.glowColor = color;
-                // 强化子弹向上发射，修正速度向量
+                this.color = '#e830a5';
+                this.glowColor = '#e830a5';
+                // 强化子弹支持角度射击，和导弹一样
                 this.vx = Math.sin(angle) * Math.abs(speed);
                 this.vy = -Math.cos(angle) * Math.abs(speed);
+                this.angle = angle; // 保存角度用于绘制
                 break;
             case 'upgraded': 
                 this.width = 12;
@@ -122,6 +124,16 @@ class Bullet {
                 this.angle = angle; // 导弹的视觉角度
                 break;
         }
+    }
+
+    // 辅助函数：将十六进制颜色转换为RGB
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : {r: 255, g: 255, b: 0}; // 默认黄色
     }
 
     update() {
@@ -344,34 +356,47 @@ class Bullet {
             ctx.restore();
             
         } else if (this.type === 'powerShot') {
-            // 强化子弹 - 黄色能量光束
-            // 光束主体
-            ctx.fillStyle = '#ffcc00';
-            ctx.fillRect(this.x + 1, this.y + 2, this.width - 2, this.height - 4);
+            // 强化子弹 - 使用动态颜色的能量光束（支持角度旋转）
+            const centerX = this.x + this.width / 2;
+            const centerY = this.y + this.height / 2;
             
-            // 光束头部
-            ctx.fillStyle = '#ffffff';
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(this.angle || 0);
+            ctx.translate(-this.width / 2, -this.height / 2);
+            
+            // 光束主体
+            ctx.fillStyle = this.color;
+            ctx.fillRect(1, 2, this.width - 2, this.height - 4);
+            
+            // 光束头部 - 使用更亮的颜色
+            const rgb = this.hexToRgb(this.color);
+            const brighterColor = `rgb(${Math.min(255, rgb.r + 80)}, ${Math.min(255, rgb.g + 80)}, ${Math.min(255, rgb.b + 80)})`;
+            ctx.fillStyle = brighterColor;
             ctx.beginPath();
-            ctx.moveTo(this.x + this.width/2, this.y);
-            ctx.lineTo(this.x, this.y + 3);
-            ctx.lineTo(this.x + this.width, this.y + 3);
+            ctx.moveTo(this.width/2, 0);
+            ctx.lineTo(0, 3);
+            ctx.lineTo(this.width, 3);
             ctx.closePath();
             ctx.fill();
             
-            // 光束尾部
-            ctx.fillStyle = '#ff8800';
+            // 光束尾部 - 使用更暗的颜色
+            const darkerColor = `rgb(${Math.max(0, rgb.r - 40)}, ${Math.max(0, rgb.g - 40)}, ${Math.max(0, rgb.b - 40)})`;
+            ctx.fillStyle = darkerColor;
             ctx.beginPath();
-            ctx.moveTo(this.x, this.y + this.height - 4);
-            ctx.lineTo(this.x + this.width, this.y + this.height - 4);
-            ctx.lineTo(this.x + this.width/2, this.y + this.height);
+            ctx.moveTo(0, this.height - 4);
+            ctx.lineTo(this.width, this.height - 4);
+            ctx.lineTo(this.width/2, this.height);
             ctx.closePath();
             ctx.fill();
             
             // 能量脉冲
-            const pulseY = this.y + this.height - 3 + Math.sin(this.animationTimer) * 2;
-            ctx.fillStyle = '#ffffff';
+            const pulseY = this.height - 3 + Math.sin(this.animationTimer) * 2;
+            ctx.fillStyle = brighterColor;
             ctx.globalAlpha = 0.7;
-            ctx.fillRect(this.x + this.width/2 - 0.25, pulseY, 0.5, 1);
+            ctx.fillRect(this.width/2 - 0.25, pulseY, 0.5, 1);
+            
+            ctx.restore();
             
         } else if (this.type === 'tracking') {
             // 跟踪导弹 - 橙红色火箭弹（带旋转）
@@ -530,13 +555,17 @@ class Bullet {
             ctx.fill();
             
         } else if (this.type === 'upgraded') {
-            // 升级子弹 - 绿色能量箭矢
+            // 升级子弹 - 使用动态颜色的能量箭矢
+            const rgb = this.hexToRgb(this.color);
+            const brighterColor = `rgb(${Math.min(255, rgb.r + 60)}, ${Math.min(255, rgb.g + 60)}, ${Math.min(255, rgb.b + 60)})`;
+            const darkerColor = `rgb(${Math.max(0, rgb.r - 60)}, ${Math.max(0, rgb.g - 60)}, ${Math.max(0, rgb.b - 60)})`;
+            
             // 箭矢主体
-            ctx.fillStyle = '#00cc66';
+            ctx.fillStyle = this.color;
             ctx.fillRect(this.x + 1, this.y + 3, this.width - 2, this.height - 6);
             
-            // 箭头尖端
-            ctx.fillStyle = '#00ff80';
+            // 箭头尖端 - 使用更亮的颜色
+            ctx.fillStyle = brighterColor;
             ctx.beginPath();
             ctx.moveTo(this.x + this.width/2, this.y);
             ctx.lineTo(this.x, this.y + 4);
@@ -544,8 +573,8 @@ class Bullet {
             ctx.closePath();
             ctx.fill();
             
-            // 箭羽
-            ctx.fillStyle = '#008844';
+            // 箭羽 - 使用更暗的颜色
+            ctx.fillStyle = darkerColor;
             ctx.beginPath();
             ctx.moveTo(this.x, this.y + this.height - 3);
             ctx.lineTo(this.x + this.width/2, this.y + this.height - 1);
@@ -556,7 +585,7 @@ class Bullet {
             
             // 能量光芒
             const pulseY = this.y + this.height - 3 + Math.sin(this.animationTimer) * 2;
-            ctx.fillStyle = '#00ff80';
+            ctx.fillStyle = brighterColor;
             ctx.globalAlpha = 0.7;
             ctx.fillRect(this.x + this.width/2 - 0.5, pulseY, 1, 2);
             

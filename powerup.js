@@ -11,7 +11,8 @@ class PowerUp {
         this.type = type || this.getRandomType();
         this.color = color || this.getColor();
         this.pulseTimer = 0;
-        // 道具将永远在屏幕内弹跳，不会消失
+        this.bounceCount = 0; // 撞墙次数计数器
+        this.maxBounces = 6; // 最大撞墙次数（左右各3次）
     }
 
     getRandomType() {
@@ -42,6 +43,7 @@ class PowerUp {
         if (this.x <= 0 || this.x + this.width >= canvas.width) {
             this.vx = -this.vx;
             this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
+            this.bounceCount++; // 增加撞墙计数
             bounced = true;
         }
         
@@ -54,18 +56,15 @@ class PowerUp {
         
         // 道具碰撞墙壁后改变方向，继续在屏幕内移动
         
-        // 添加轻微的重力效果
-        this.vy += 0.05;
-        
         // 限制最大速度
         const maxSpeed = 4;
         if (Math.abs(this.vx) > maxSpeed) this.vx = Math.sign(this.vx) * maxSpeed;
         if (Math.abs(this.vy) > maxSpeed) this.vy = Math.sign(this.vy) * maxSpeed;
     }
     
-    // 道具永远不会被移除，只在屏幕内弹跳
+    // 道具撞墙次数达到上限后会被移除
     shouldRemove() {
-        return false;
+        return this.bounceCount >= this.maxBounces;
     }
 
     draw() {
