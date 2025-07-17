@@ -65,7 +65,7 @@ app.post('/api/update-bullets', async (req, res) => {
                 }
             } else {
                 // 处理单独的case语句
-                const caseRegex = new RegExp(`case\s+['"]${type}['"]:[\s\S]*?break;`, 'g');
+                const caseRegex = new RegExp(`case\\s+['"]${type}['"]:[\\s\\S]*?break;`, 'g');
                 const caseMatch = content.match(caseRegex);
                 
                 if (caseMatch) {

@@ -93,7 +93,7 @@ class Bullet {
                 this.vy = Math.cos(angle) * speed;
                 break;
             case 'powerShot':
-                this.width = 9;
+                this.width = 7;
                 this.height = 28;
                 this.color = '#e830a5';
                 this.glowColor = '#e830a5';
@@ -105,8 +105,8 @@ class Bullet {
             case 'upgraded': 
                 this.width = 12;
                 this.height = 25;
-                this.color = color;
-                this.glowColor = color;
+                this.color = '#00cc66';
+                this.glowColor = '#00cc66';
                 // 升级子弹向上发射，修正速度向量
                 this.vx = Math.sin(angle) * Math.abs(speed);
                 this.vy = -Math.cos(angle) * Math.abs(speed);
