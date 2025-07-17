@@ -1,6 +1,6 @@
 // 道具类
 class PowerUp {
-    constructor(x, y) {
+    constructor(x, y, type = null, color = null) {
         this.x = x;
         this.y = y;
         this.width = 25;
@@ -8,8 +8,8 @@ class PowerUp {
         this.speed = 2;
         this.vx = (Math.random() - 0.5) * 2; // 随机水平速度
         this.vy = this.speed; // 垂直速度
-        this.type = this.getRandomType();
-        this.color = this.getColor();
+        this.type = type || this.getRandomType();
+        this.color = color || this.getColor();
         this.pulseTimer = 0;
         // 道具将永远在屏幕内弹跳，不会消失
     }

@@ -1,6 +1,6 @@
 // 子弹类
 class Bullet {
-    constructor(x, y, speed, color = '#ffff00', type = 'normal', angle = 0) {
+    constructor(x, y, speed, color = '#ffff00', type = 'normal', angle = 0, rotationSpeed = 0.1) {
         this.x = x;
         this.y = y;
         this.width = 4;
@@ -16,15 +16,15 @@ class Bullet {
         this.animationTimer = 0;
         this.particles = []; // 子弹粒子效果
         this.rotationAngle = 0; // 旋转角度（用于椭圆形子弹）
-        this.rotationSpeed = 0.1; // 旋转速度
+        this.rotationSpeed = rotationSpeed; // 旋转速度
         
         // 根据类型设置属性
         switch(type) {
             case 'player':
-                this.width = 2;
-                this.height = 15;
-                this.color = '#ffff00';
-                this.glowColor = '#ffff00';
+                this.width = 8;
+                this.height = 25;
+                this.color = color || '#ffff00';
+                this.glowColor = color || '#ffff00';
                 // 玩家子弹向上发射，修正速度向量
                 this.vx = Math.sin(angle) * Math.abs(speed);
                 this.vy = -Math.cos(angle) * Math.abs(speed);
@@ -32,20 +32,28 @@ class Bullet {
             case 'enemy':
                 this.width = 10;
                 this.height = 16;
-                this.color = color || '#ff8800';
-                this.glowColor = '#ffaa00';
+                this.color = color;
+                this.glowColor = color;
                 // 敌机子弹 - 椭圆形，支持角度射击（可抵消，尺寸较大）
                 this.vx = Math.sin(angle) * speed;
                 this.vy = Math.cos(angle) * speed;
                 break;
             case 'normal':
-            case 'fast':
             case 'scout':
                 this.width = 6;
                 this.height = 12;
                 this.color = color || '#ff8800';
-                this.glowColor = '#ffaa00';
+                this.glowColor = color || '#ffaa00';
                 // 敌机子弹 - 椭圆形，支持角度射击
+                this.vx = Math.sin(angle) * speed;
+                this.vy = Math.cos(angle) * speed;
+                break;
+            case 'fast':
+                this.width = 6;
+                this.height = 12;
+                this.color = color;
+                this.glowColor = color;
+                // 快速子弹 - 椭圆形，支持角度射击
                 this.vx = Math.sin(angle) * speed;
                 this.vy = Math.cos(angle) * speed;
                 break;
@@ -53,8 +61,8 @@ class Bullet {
             case 'armored':
                 this.width = 8;
                 this.height = 8;
-                this.color = color || '#ff0000';
-                this.glowColor = '#ff6600';
+                this.color = color;
+                this.glowColor = color;
                 // 重型子弹 - 圆形，支持角度射击
                 this.vx = Math.sin(angle) * speed;
                 this.vy = Math.cos(angle) * speed;
@@ -62,10 +70,11 @@ class Bullet {
             case 'piercing':
             case 'venom':
             case 'spiral':
-                this.width = 11; // 缩小到70%
-                this.height = 11; // 缩小到70%
-                this.color = color || '#ff00ff'; // 改为紫色
-                this.glowColor = '#ff66ff';
+                this.width = 20; // 缩小到70%
+                this.height = 7; // 缩小到70%
+                // 优先使用传入的颜色
+                this.color = color;
+                this.glowColor = color;
                 // Boss不可抵消子弹 - 圆形，支持角度射击（体积缩小到70%）
                 this.vx = Math.sin(angle) * speed;
                 this.vy = Math.cos(angle) * speed;
@@ -76,26 +85,26 @@ class Bullet {
             case 'boss_pierce':
                 this.width = 10;
                 this.height = 18;
-                this.color = type === 'boss_poison' ? '#00ff00' : type === 'boss_pierce' ? '#ff00ff' : '#ff0000';
-                this.glowColor = type === 'boss_poison' ? '#00cc00' : type === 'boss_pierce' ? '#cc00cc' : '#ff6600';
+                this.color = color || (type === 'boss_poison' ? '#00ff00' : type === 'boss_pierce' ? '#ff00ff' : '#ff0000');
+                this.glowColor = color || (type === 'boss_poison' ? '#00cc00' : type === 'boss_pierce' ? '#cc00cc' : '#ff6600');
                 // Boss子弹 - 支持角度射击
                 this.vx = Math.sin(angle) * speed;
                 this.vy = Math.cos(angle) * speed;
                 break;
             case 'powerShot':
-                this.width = 8;
-                this.height = 18;
-                this.color = '#ffff00';
-                this.glowColor = '#ffaa00';
+                this.width = 14;
+                this.height = 28;
+                this.color = color;
+                this.glowColor = color;
                 // 强化子弹向上发射，修正速度向量
                 this.vx = Math.sin(angle) * Math.abs(speed);
                 this.vy = -Math.cos(angle) * Math.abs(speed);
                 break;
             case 'upgraded': 
-                this.width = 6;
-                this.height = 16;
-                this.color = color || '#00ff80';
-                this.glowColor = color || '#00ff80';
+                this.width = 12;
+                this.height = 25;
+                this.color = color;
+                this.glowColor = color;
                 // 升级子弹向上发射，修正速度向量
                 this.vx = Math.sin(angle) * Math.abs(speed);
                 this.vy = -Math.cos(angle) * Math.abs(speed);
@@ -103,8 +112,8 @@ class Bullet {
             case 'tracking': // 跟踪导弹
                 this.width = 10;
                 this.height = 28;
-                this.color = '#ff4400';
-                this.glowColor = '#ff8800';
+                this.color = color;
+                this.glowColor = color;
                 this.trackingSpeed = 0.2; // 跟踪转向速度
                 this.maxSpeed = Math.abs(speed);
                 // 跟踪导弹初始向上发射
@@ -175,10 +184,8 @@ class Bullet {
         this.animationTimer += 0.3;
         this.glowIntensity = Math.sin(this.animationTimer) * 0.3 + 0.7;
         
-        // 更新椭圆形子弹的旋转角度
-        if (this.type === 'boss_poison' || this.type === 'boss_pierce' || this.type === 'boss' || this.type === 'enemy' || this.type === 'normal' || this.type === 'fast' || this.type === 'scout') {
-            this.rotationAngle += this.rotationSpeed;
-        }
+        // 更新子弹的旋转角度（所有类型都支持旋转）
+        this.rotationAngle += this.rotationSpeed;
         
         // 为玩家子弹添加粒子效果
         if (this.type === 'player' || this.type === 'powerShot') {
@@ -228,33 +235,57 @@ class Bullet {
             ctx.restore();
         }
         
-        // 绘制发光效果
+        // 绘制发光效果 - 使用径向渐变实现从清晰到模糊的柔和发光
         if (this.glowColor) {
             ctx.save();
-            ctx.globalAlpha = 0.2 * this.glowIntensity;
-            ctx.fillStyle = this.glowColor;
             
-            // 根据子弹类型选择发光形状
-            if (this.type === 'boss_normal' || this.type === 'heavy' || this.type === 'armored') {
-                // 圆形子弹使用圆形发光效果
-                const radius = (this.width / 2) + 3;
-                const centerX = this.x + this.width / 2;
-                const centerY = this.y + this.height / 2;
+            const centerX = this.x + this.width / 2;
+            const centerY = this.y + this.height / 2;
+            
+            // 根据子弹类型选择发光形状 - 全部使用柔和的径向渐变
+            if (this.type === 'boss_normal' || this.type === 'heavy' || this.type === 'armored' || this.type === 'spiral') {
+                // 圆形子弹使用圆形径向渐变发光效果
+                const innerRadius = Math.max(this.width, this.height) / 2;
+                const outerRadius = innerRadius + 8;
+                
+                const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, outerRadius);
+                gradient.addColorStop(0, this.glowColor + Math.floor(0.6 * this.glowIntensity * 255).toString(16).padStart(2, '0'));
+                gradient.addColorStop(0.3, this.glowColor + Math.floor(0.3 * this.glowIntensity * 255).toString(16).padStart(2, '0'));
+                gradient.addColorStop(0.7, this.glowColor + Math.floor(0.1 * this.glowIntensity * 255).toString(16).padStart(2, '0'));
+                gradient.addColorStop(1, this.glowColor + '00');
+                
+                ctx.fillStyle = gradient;
                 ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (this.type === 'boss_poison' || this.type === 'boss_pierce' || this.type === 'boss' || this.type === 'enemy' || this.type === 'normal' || this.type === 'fast' || this.type === 'scout') {
-                // 椭圆形子弹使用椭圆形发光效果
-                const centerX = this.x + this.width / 2;
-                const centerY = this.y + this.height / 2;
-                const radiusX = (this.width / 2) + 3;
-                const radiusY = (this.height / 2) + 3;
-                ctx.beginPath();
-                ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+                ctx.arc(centerX, centerY, outerRadius, 0, Math.PI * 2);
                 ctx.fill();
             } else {
-                // 其他子弹使用矩形发光效果
-                ctx.fillRect(this.x - 3, this.y - 3, this.width + 6, this.height + 6);
+                // 其他子弹使用多层圆形渐变模拟椭圆形柔和发光
+                const radiusX = (this.width / 2) + 6;
+                const radiusY = (this.height / 2) + 6;
+                const maxRadius = Math.max(radiusX, radiusY);
+                
+                // 创建多层渐变效果
+                for (let i = 0; i < 3; i++) {
+                    const scale = 1 - i * 0.3;
+                    const alpha = (0.4 - i * 0.1) * this.glowIntensity;
+                    const currentRadiusX = radiusX * scale;
+                    const currentRadiusY = radiusY * scale;
+                    
+                    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius * scale);
+                    gradient.addColorStop(0, this.glowColor + Math.floor(alpha * 255).toString(16).padStart(2, '0'));
+                    gradient.addColorStop(0.5, this.glowColor + Math.floor(alpha * 0.5 * 255).toString(16).padStart(2, '0'));
+                    gradient.addColorStop(1, this.glowColor + '00');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.save();
+                    ctx.translate(centerX, centerY);
+                    ctx.rotate(this.angle || 0);
+                    ctx.scale(currentRadiusX / maxRadius, currentRadiusY / maxRadius);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, maxRadius * scale, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
             }
             
             ctx.restore();
@@ -400,6 +431,103 @@ class Bullet {
             ctx.fillRect(this.width/2 - 1, this.height - 8, 2, 2);
             
             ctx.restore();
+            
+        } else if (this.type === 'venom') {
+            // 毒液子弹 - 使用配置的颜色绘制毒液效果
+            const centerX = this.x + this.width / 2;
+            const centerY = this.y + this.height / 2;
+            const radiusX = this.width / 2;
+            const radiusY = this.height / 2;
+            
+            // 外层毒液云
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = 0.8;
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, radiusX, radiusY, this.rotationAngle, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 内层毒液核心
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = 1;
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, radiusX * 0.6, radiusY * 0.6, this.rotationAngle, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 毒液气泡效果
+            const bubbleOffset = Math.sin(this.animationTimer) * 2;
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.4;
+            ctx.beginPath();
+            ctx.arc(centerX - radiusX * 0.3, centerY - radiusY * 0.3 + bubbleOffset, radiusX * 0.15, 0, Math.PI * 2);
+            ctx.fill();
+            
+        } else if (this.type === 'piercing') {
+            // 穿透子弹 - 使用配置的颜色绘制尖锐箭矢
+            // 箭矢主体
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x + 1, this.y + 2, this.width - 2, this.height - 4);
+            
+            // 尖锐箭头
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.moveTo(this.x + this.width/2, this.y);
+            ctx.lineTo(this.x, this.y + 3);
+            ctx.lineTo(this.x + this.width, this.y + 3);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 箭羽
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = 0.7;
+            ctx.beginPath();
+            ctx.moveTo(this.x + 1, this.y + this.height - 2);
+            ctx.lineTo(this.x + this.width/2, this.y + this.height - 4);
+            ctx.lineTo(this.x + this.width - 1, this.y + this.height - 2);
+            ctx.lineTo(this.x + this.width/2, this.y + this.height);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 能量线条
+            ctx.strokeStyle = '#ffffff';
+            ctx.globalAlpha = 0.8;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(this.x + this.width/2, this.y + 2);
+            ctx.lineTo(this.x + this.width/2, this.y + this.height - 2);
+            ctx.stroke();
+            
+        } else if (this.type === 'spiral') {
+            // 螺旋子弹 - 使用配置的颜色绘制螺旋能量球
+            const centerX = this.x + this.width / 2;
+            const centerY = this.y + this.height / 2;
+            const radius = this.width / 2;
+            
+            // 主体能量球
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 螺旋能量纹路
+            ctx.strokeStyle = '#ffffff';
+            ctx.globalAlpha = 0.6;
+            ctx.lineWidth = 1;
+            const spiralOffset = this.animationTimer;
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                const angle = (spiralOffset + i * Math.PI * 2 / 3) % (Math.PI * 2);
+                const spiralX = centerX + Math.cos(angle) * radius * 0.5;
+                const spiralY = centerY + Math.sin(angle) * radius * 0.5;
+                ctx.arc(spiralX, spiralY, radius * 0.2, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            // 中心高光
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.8;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.3, 0, Math.PI * 2);
+            ctx.fill();
             
         } else if (this.type === 'upgraded') {
             // 升级子弹 - 绿色能量箭矢

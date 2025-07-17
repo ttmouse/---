@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>穿透子弹调试</title>
+</head>
+<body>
+    <h1>穿透子弹调试测试</h1>
+    <div id="test-results"></div>
+    
+    <script src="bullet.js"></script>
+    <script>
+        // 测试穿透子弹的创建和参数调整
+        function testPiercingBullet() {
+            const results = document.getElementById('test-results');
+            
+            // 创建穿透子弹实例
+            const bullet = new Bullet(100, 100, 5, '#ff00ff', 'piercing', 0, 0.1);
+            
+            results.innerHTML += '<h2>初始穿透子弹属性:</h2>';
+            results.innerHTML += `<p>类型: ${bullet.type}</p>`;
+            results.innerHTML += `<p>颜色: ${bullet.color}</p>`;
+            results.innerHTML += `<p>宽度: ${bullet.width}</p>`;
+            results.innerHTML += `<p>高度: ${bullet.height}</p>`;
+            
+            // 测试参数调整
+            bullet.width = 25;
+            bullet.height = 10;
+            bullet.color = '#00ff00';
+            
+            results.innerHTML += '<h2>调整后的穿透子弹属性:</h2>';
+            results.innerHTML += `<p>类型: ${bullet.type}</p>`;
+            results.innerHTML += `<p>颜色: ${bullet.color}</p>`;
+            results.innerHTML += `<p>宽度: ${bullet.width}</p>`;
+            results.innerHTML += `<p>高度: ${bullet.height}</p>`;
+            
+            // 测试是否可以正常创建和修改
+            if (bullet.type === 'piercing' && bullet.color === '#00ff00' && bullet.width === 25) {
+                results.innerHTML += '<p style="color: green;">✅ 穿透子弹参数调整正常</p>';
+            } else {
+                results.innerHTML += '<p style="color: red;">❌ 穿透子弹参数调整异常</p>';
+            }
+        }
+        
+        // 页面加载后执行测试
+        window.onload = testPiercingBullet;
+    </script>
+</body>
+</html>

@@ -107,7 +107,7 @@ document.addEventListener('keydown', (e) => {
             case 5:
                 // 新增Boss
                 const bossX = Math.random() * (canvas.width - 80);
-                enemies.push(new Enemy(bossX, -60, 'boss'));
+                enemies.push(new Enemy(bossX, -60, 'boss', null));
                 break;
             case 6:
                 // 清空敌人
@@ -433,13 +433,13 @@ function spawnEnemy() {
         type = 'scout'; // 侦察机
     }
     
-    enemies.push(new Enemy(x, -50, type));
+    enemies.push(new Enemy(x, -50, type, null));
 }
 
 // 生成道具
 function spawnPowerUp(x, y) {
     if (Math.random() < 0.3) { // 30%概率掉落道具
-        powerUps.push(new PowerUp(x, y));
+        powerUps.push(new PowerUp(x, y, null, null));
     }
 }
 
@@ -735,7 +735,7 @@ function update() {
                     if (gameState.totalEnemiesKilled % gameState.bossSpawnCount === 0) {
                         // 强制生成Boss
                         const bossX = Math.random() * (canvas.width - 80);
-                        enemies.push(new Enemy(bossX, -60, 'boss'));
+                        enemies.push(new Enemy(bossX, -60, 'boss', null));
                     }
                     
                     // 检查关卡进度
@@ -899,7 +899,7 @@ function update() {
                     // 检查Boss生成条件
                     if (gameState.totalEnemiesKilled % gameState.bossSpawnCount === 0) {
                         const bossX = Math.random() * (canvas.width - 80);
-                        enemies.push(new Enemy(bossX, -60, 'boss'));
+                        enemies.push(new Enemy(bossX, -60, 'boss', null));
                     }
                     
                     // 检查关卡进度

@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小蜜蜂游戏 - 元素测试页面</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #ffff00;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            background: #111;
+        }
+        .section h2 {
+            color: #00ff00;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+        .canvas-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        .test-canvas {
+            border: 1px solid #666;
+            background: linear-gradient(to bottom, #001122, #003366);
+        }
+        .element-info {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            background: #333;
+            color: #fff;
+            border: 1px solid #666;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #555;
+        }
+        button.active {
+            background: #007700;
+        }
+        .description {
+            margin-top: 10px;
+            padding: 10px;
+            background: #222;
+            border-radius: 5px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .stat-item {
+            background: #333;
+            padding: 8px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .param-controls {
+            margin-top: 15px;
+            padding: 15px;
+            background: #222;
+            border-radius: 5px;
+            border: 1px solid #444;
+        }
+        .param-group {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .param-group label {
+            min-width: 80px;
+            font-size: 12px;
+            color: #ccc;
+        }
+        .param-group input[type="range"] {
+            flex: 1;
+            min-width: 100px;
+        }
+        .param-group input[type="color"] {
+            width: 40px;
+            height: 25px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .param-group .value-display {
+            min-width: 40px;
+            font-size: 12px;
+            color: #fff;
+            background: #444;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .number-input {
+            width: 70px;
+            padding: 5px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background: #333;
+            color: #fff;
+            text-align: center;
+            font-size: 12px;
+        }
+        .number-input:focus {
+            outline: none;
+            border-color: #007acc;
+            box-shadow: 0 0 5px rgba(0, 122, 204, 0.3);
+        }
+        .toggle-params {
+            background: #444;
+            color: #fff;
+            border: 1px solid #666;
+            padding: 5px 10px;
+            margin-top: 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .toggle-params:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐝 小蜜蜂游戏 - 元素测试页面</h1>
+        
+        <div class="controls">
+            <button onclick="startAnimation()" id="animBtn">开始动画</button>
+            <button onclick="stopAnimation()">停止动画</button>
+            <button onclick="resetAll()">重置所有</button>
+            <button onclick="exportConfig()" style="background: #006600;">导出配置</button>
+            <button onclick="saveToFiles()" style="background: #cc6600;">保存到文件</button>
+        </div>
+
+        <!-- 敌机展示 -->
+        <div class="section">
+            <h2>🚁 敌机类型展示</h2>
+            <div class="canvas-container" id="enemyContainer">
+                <!-- 敌机画布将在这里动态生成 -->
+            </div>
+        </div>
+
+        <!-- 子弹展示 -->
+        <div class="section">
+            <h2>💥 子弹类型展示</h2>
+            <div class="canvas-container" id="bulletContainer">
+                <!-- 子弹画布将在这里动态生成 -->
+            </div>
+        </div>
+
+        <!-- 道具展示 -->
+        <div class="section">
+            <h2>🎁 道具类型展示</h2>
+            <div class="canvas-container" id="powerupContainer">
+                <!-- 道具画布将在这里动态生成 -->
+            </div>
+        </div>
+
+        <!-- 玩家飞机展示 -->
+        <div class="section">
+            <h2>✈️ 玩家飞机展示</h2>
+            <div class="canvas-container">
+                <div>
+                    <canvas class="test-canvas" width="200" height="150" id="playerCanvas"></canvas>
+                    <div class="element-info">
+                        <strong>玩家飞机</strong>
+                        <div class="description">
+                            玩家控制的小蜜蜂，可以移动和射击
+                        </div>
+                        <div class="stats">
+                            <div class="stat-item">尺寸: 40x30</div>
+                            <div class="stat-item">速度: 5</div>
+                            <div class="stat-item">生命: 3</div>
+                            <div class="stat-item">颜色: 黄色</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入游戏文件 -->
+    <script src="bullet.js"></script>
+    <script src="enemy.js"></script>
+    <script src="powerup.js"></script>
+    
+    <script>
+        // 全局变量
+        let animationRunning = false;
+        let animationId = null;
+        let enemyInstances = {};
+        let bulletInstances = {};
+        let powerupInstances = {};
+        
+        // 敌机类型配置
+        const enemyTypes = [
+            {
+                type: 'normal',
+                name: '普通敌机',
+                description: '基础敌机，橙色，中等速度和血量',
+                color: '#ff6600'
+            },
+            {
+                type: 'fast',
+                name: '快速敌机',
+                description: '黄色方块，移动速度快，血量较低，Z字形移动',
+                color: '#ffff00'
+            },
+            {
+                type: 'heavy',
+                name: '重型敌机',
+                description: '棕色，体积大，血量高，移动缓慢，发射三连发',
+                color: '#8B4513'
+            },
+            {
+                type: 'armored',
+                name: '装甲敌机',
+                description: '灰色，中等体积，发射穿透子弹',
+                color: '#808080'
+            },
+            {
+                type: 'scout',
+                name: '侦察机',
+                description: '绿色蜻蜓，快速移动，会逃跑',
+                color: '#00ff88'
+            },
+            {
+                type: 'boss',
+                name: 'Boss蜘蛛',
+                description: '红色大型蜘蛛Boss，多阶段攻击模式',
+                color: '#ff0000'
+            }
+        ];
+
+        // 子弹类型配置
+        const bulletTypes = [
+            {
+                type: 'player',
+                name: '玩家子弹',
+                description: '黄色针状，向上发射',
+                color: '#ffff00'
+            },
+            {
+                type: 'enemy',
+                name: '敌机子弹',
+                description: '橙色椭圆，可被抵消',
+                color: '#ff6600'
+            },
+            {
+                type: 'fast',
+                name: '快速子弹',
+                description: '黄色，速度快',
+                color: '#ffff00'
+            },
+            {
+                type: 'heavy',
+                name: '重型子弹',
+                description: '红色圆形，伤害高',
+                color: '#ff4400'
+            },
+            {
+                type: 'piercing',
+                name: '穿透子弹',
+                description: '紫色，不可抵消，Boss发射',
+                color: '#ff00ff'
+            },
+            {
+                type: 'venom',
+                name: '毒液子弹',
+                description: '绿色，不可抵消，Boss发射',
+                color: '#00ff62'
+            },
+            {
+                type: 'powerShot',
+                name: '强化子弹',
+                description: '黄色，带轨迹效果',
+                color: '#ffff00'
+            },
+            {
+                type: 'tracking',
+                name: '跟踪导弹',
+                description: '橙红色，自动追踪敌机',
+                color: '#ff4400'
+            }
+        ];
+
+        // 道具类型配置
+        const powerupTypes = [
+            {
+                type: 'health',
+                name: '花蜜',
+                description: '恢复生命值',
+                color: '#ff0080'
+            },
+            {
+                type: 'shield',
+                name: '蜂蜡',
+                description: '增加保护光圈',
+                color: '#0080ff'
+            },
+            {
+                type: 'rapidFire',
+                name: '蜂蜜',
+                description: '快速射击',
+                color: '#ffff00'
+            },
+            {
+                type: 'bulletUpgrade',
+                name: '强化蜂针',
+                description: '子弹升级',
+                color: '#ff6600'
+            }
+        ];
+
+        // 初始化函数
+        function init() {
+            // 设置全局canvas和ctx
+            window.canvas = { width: 800, height: 600 };
+            
+            createEnemyDisplays();
+            createBulletDisplays();
+            createPowerupDisplays();
+            createPlayerDisplay();
+        }
+
+        // 创建敌机展示
+        function createEnemyDisplays() {
+            const container = document.getElementById('enemyContainer');
+            
+            enemyTypes.forEach(config => {
+                const div = document.createElement('div');
+                const canvas = document.createElement('canvas');
+                canvas.className = 'test-canvas';
+                canvas.width = 200;
+                canvas.height = 150;
+                canvas.id = `enemy-${config.type}`;
+                
+                const info = document.createElement('div');
+                info.className = 'element-info';
+                
+                // 创建敌机实例获取属性
+                const enemy = new Enemy(100, 75, config.type, config.color);
+                
+                info.innerHTML = `
+                    <strong>${config.name}</strong>
+                    <div class="description">${config.description}</div>
+                    <div class="stats">
+                        <div class="stat-item">尺寸: ${enemy.width}x${enemy.height}</div>
+                        <div class="stat-item">血量: ${enemy.health}</div>
+                        <div class="stat-item">速度: ${enemy.speed}</div>
+                        <div class="stat-item">射击间隔: ${enemy.shootInterval}</div>
+                        <div class="stat-item">颜色: <span style="color: ${enemy.color}; font-weight: bold;">${enemy.color}</span></div>
+                    </div>
+                    <button class="toggle-params" onclick="toggleParams('enemy-${config.type}')">调整参数</button>
+                    <div class="param-controls" id="params-enemy-${config.type}" style="display: none;">
+                        <div class="param-group">
+                            <label>宽度:</label>
+                            <input type="range" min="10" max="100" value="${enemy.width}" 
+                                   onchange="updateEnemyParam('${config.type}', 'width', this.value)" 
+                                   oninput="syncInputValue('width-enemy-${config.type}', this.value)">
+                            <input type="number" min="10" max="100" value="${enemy.width}" 
+                                   onchange="updateEnemyParamFromInput('${config.type}', 'width', this.value)" 
+                                   id="width-enemy-${config.type}-input" class="number-input">
+                        </div>
+                        <div class="param-group">
+                            <label>高度:</label>
+                            <input type="range" min="10" max="100" value="${enemy.height}" 
+                                   onchange="updateEnemyParam('${config.type}', 'height', this.value)" 
+                                   oninput="syncInputValue('height-enemy-${config.type}', this.value)">
+                            <input type="number" min="10" max="100" value="${enemy.height}" 
+                                   onchange="updateEnemyParamFromInput('${config.type}', 'height', this.value)" 
+                                   id="height-enemy-${config.type}-input" class="number-input">
+                        </div>
+                        <div class="param-group">
+                            <label>血量:</label>
+                            <input type="range" min="1" max="50" value="${enemy.health}" 
+                                   onchange="updateEnemyParam('${config.type}', 'health', this.value)" 
+                                   oninput="syncInputValue('health-enemy-${config.type}', this.value)">
+                            <input type="number" min="1" max="50" value="${enemy.health}" 
+                                   onchange="updateEnemyParamFromInput('${config.type}', 'health', this.value)" 
+                                   id="health-enemy-${config.type}-input" class="number-input">
+                        </div>
+                        <div class="param-group">
+                            <label>速度:</label>
+                            <input type="range" min="0.5" max="10" step="0.5" value="${enemy.speed}" 
+                                   onchange="updateEnemyParam('${config.type}', 'speed', this.value)" 
+                                   oninput="syncInputValue('speed-enemy-${config.type}', this.value)">
+                            <input type="number" min="0.5" max="10" step="0.5" value="${enemy.speed}" 
+                                   onchange="updateEnemyParamFromInput('${config.type}', 'speed', this.value)" 
+                                   id="speed-enemy-${config.type}-input" class="number-input">
+                        </div>
+                        <div class="param-group">
+                            <label>颜色:</label>
+                            <input type="color" value="${enemy.color}" 
+                                   onchange="updateEnemyParam('${config.type}', 'color', this.value)">
+                        </div>
+                    </div>
+                `;
+                
+                div.appendChild(canvas);
+                div.appendChild(info);
+                container.appendChild(div);
+                
+                // 存储敌机实例
+                enemyInstances[config.type] = enemy;
+                
+                // 绘制静态敌机
+                drawStaticEnemy(canvas, enemy);
+            });
+        }
+
+        // 创建子弹展示
+        function createBulletDisplays() {
+            const container = document.getElementById('bulletContainer');
+            
+            bulletTypes.forEach(config => {
+                const div = document.createElement('div');
+                const canvas = document.createElement('canvas');
+                canvas.className = 'test-canvas';
+                canvas.width = 150;
+                canvas.height = 100;
+                canvas.id = `bullet-${config.type}`;
+                
+                const info = document.createElement('div');
+                info.className = 'element-info';
+                
+                // 创建子弹实例获取属性
+                const bullet = new Bullet(75, 50, 3, config.color, config.type, 0, 0.1);
+                // 初始化新参数
+                bullet.angle = 0;
+                bullet.rotationSpeed = 0.1;
+                bullet.followShootDirection = false;
+                bullet.enableRotation = false;
+                
+                info.innerHTML = `
+                    <strong>${config.name}</strong>
+                    <div class="description">${config.description}</div>
+                    <div class="stats">
+                        <div class="stat-item">尺寸: ${bullet.width}x${bullet.height}</div>
+                        <div class="stat-item">颜色: <span style="color: ${bullet.color}; font-weight: bold;">${bullet.color}</span></div>
+                        <div class="stat-item">类型: ${bullet.type}</div>
+                    </div>
+                    <button class="toggle-params" onclick="toggleParams('bullet-${config.type}')">调整参数</button>
+                    <div class="param-controls" id="params-bullet-${config.type}" style="display: none;">
+                        <div class="param-group">
+                            <label>宽度:</label>
+                            <input type="range" min="2" max="30" value="${bullet.width}" 
+                                   onchange="updateBulletParam('${config.type}', 'width', this.value)" 
+                                   oninput="syncInputValue('width-bullet-${config.type}', this.value)">
+                            <input type="number" min="2" max="30" value="${bullet.width}" 
+                                   onchange="updateBulletParamFromInput('${config.type}', 'width', this.value)" 
+                                   id="width-bullet-${config.type}-input" class="number-input">
+                        </div>
+                        <div class="param-group">
+                            <label>高度:</label>
+                            <input type="range" min="2" max="30" value="${bullet.height}" 
+                                   onchange="updateBulletParam('${config.type}', 'height', this.value)" 
+                                   oninput="syncInputValue('height-bullet-${config.type}', this.value)">
+                            <input type="number" min="2" max="30" value="${bullet.height}" 
+                                   onchange="updateBulletParamFromInput('${config.type}', 'height', this.value)" 
+                                   id="height-bullet-${config.type}-input" class="number-input">
+                        </div>
+                        <div class="param-group">
+                            <label>颜色:</label>
+                            <input type="color" value="${bullet.color}" 
+                                   onchange="updateBulletParam('${config.type}', 'color', this.value)">
+                        </div>
+                        <div class="param-group">
+                            <label>速度:</label>
+                            <input type="range" min="1" max="20" value="${Math.abs(bullet.vy)}" 
+                                   onchange="updateBulletParam('${config.type}', 'speed', this.value)" 
+                                   oninput="syncInputValue('speed-bullet-${config.type}', this.value)">
+                            <input type="number" min="1" max="20" value="${Math.abs(bullet.vy)}" 
+                                   onchange="updateBulletParamFromInput('${config.type}', 'speed', this.value)" 
+                                   id="speed-bullet-${config.type}-input" class="number-input">
+                        </div>
+                        <div class="param-group">
+                            <label>方向控制:</label>
+                            <input type="checkbox" id="followShootDirection-bullet-${config.type}" 
+                                   onchange="updateBulletParam('${config.type}', 'followShootDirection', this.checked)">
+                            <label for="followShootDirection-bullet-${config.type}" style="min-width: auto; margin-left: 5px;">跟随射击方向</label>
+                        </div>
+                        <div class="param-group" id="angleControls-bullet-${config.type}" style="display: block;">
+                            <label>方向角度:</label>
+                            <input type="range" min="-180" max="180" value="${Math.round(bullet.angle * 180 / Math.PI)}" 
+                                   onchange="updateBulletParam('${config.type}', 'angle', this.value)" 
+                                   oninput="syncInputValue('angle-bullet-${config.type}', this.value)">
+                            <input type="number" min="-180" max="180" value="${Math.round(bullet.angle * 180 / Math.PI)}" 
+                                   onchange="updateBulletParamFromInput('${config.type}', 'angle', this.value)" 
+                                   id="angle-bullet-${config.type}-input" class="number-input">
+                            <span class="value-display">${Math.round(bullet.angle * 180 / Math.PI)}°</span>
+                        </div>
+                        <div class="param-group">
+                            <label>旋转控制:</label>
+                            <input type="checkbox" id="enableRotation-bullet-${config.type}" 
+                                   onchange="updateBulletParam('${config.type}', 'enableRotation', this.checked)">
+                            <label for="enableRotation-bullet-${config.type}" style="min-width: auto; margin-left: 5px;">是否旋转</label>
+                        </div>
+                        <div class="param-group" id="rotationControls-bullet-${config.type}" style="display: none;">
+                            <label>旋转速度:</label>
+                            <input type="range" min="0" max="1" step="0.05" value="${bullet.rotationSpeed || 0.1}" 
+                                   onchange="updateBulletParam('${config.type}', 'rotationSpeed', this.value)" 
+                                   oninput="syncInputValue('rotationSpeed-bullet-${config.type}', this.value)">
+                            <input type="number" min="0" max="1" step="0.05" value="${bullet.rotationSpeed || 0.1}" 
+                                   onchange="updateBulletParamFromInput('${config.type}', 'rotationSpeed', this.value)" 
+                                   id="rotationSpeed-bullet-${config.type}-input" class="number-input">
+                            <span class="value-display">${(bullet.rotationSpeed || 0.1).toFixed(2)}</span>
+                        </div>
+                    </div>
+                `;
+                
+                div.appendChild(canvas);
+                div.appendChild(info);
+                container.appendChild(div);
+                
+                // 存储子弹实例
+                bulletInstances[config.type] = bullet;
+                
+                // 绘制静态子弹
+                drawStaticBullet(canvas, bullet);
+            });
+        }
+
+        // 创建道具展示
+        function createPowerupDisplays() {
+            const container = document.getElementById('powerupContainer');
+            
+            powerupTypes.forEach(config => {
+                const div = document.createElement('div');
+                const canvas = document.createElement('canvas');
+                canvas.className = 'test-canvas';
+                canvas.width = 150;
+                canvas.height = 100;
+                canvas.id = `powerup-${config.type}`;
+                
+                const info = document.createElement('div');
+                info.className = 'element-info';
+                
+                info.innerHTML = `
+                    <strong>${config.name}</strong>
+                    <div class="description">${config.description}</div>
+                    <div class="stats">
+                        <div class="stat-item">尺寸: 25x25</div>
+                        <div class="stat-item">颜色: <span style="color: ${config.color}; font-weight: bold;">${config.color}</span></div>
+                        <div class="stat-item">类型: ${config.type}</div>
+                    </div>
+                    <button class="toggle-params" onclick="toggleParams('powerup-${config.type}')">调整参数</button>
+                    <div class="param-controls" id="params-powerup-${config.type}" style="display: none;">
+                        <div class="param-group">
+                            <label>尺寸:</label>
+                            <input type="range" min="15" max="50" value="25" 
+                                   onchange="updatePowerupParam('${config.type}', 'size', this.value)" 
+                                   oninput="syncInputValue('size-powerup-${config.type}', this.value)">
+                            <input type="number" min="15" max="50" value="25" 
+                                   onchange="updatePowerupParamFromInput('${config.type}', 'size', this.value)" 
+                                   id="size-powerup-${config.type}-input" class="number-input">
+                        </div>
+                        <div class="param-group">
+                            <label>颜色:</label>
+                            <input type="color" value="${config.color}" 
+                                   onchange="updatePowerupParam('${config.type}', 'color', this.value)">
+                        </div>
+                        <div class="param-group">
+                            <label>速度:</label>
+                            <input type="range" min="0.5" max="5" step="0.5" value="2" 
+                                   onchange="updatePowerupParam('${config.type}', 'speed', this.value)" 
+                                   oninput="syncInputValue('speed-powerup-${config.type}', this.value)">
+                            <input type="number" min="0.5" max="5" step="0.5" value="2" 
+                                   onchange="updatePowerupParamFromInput('${config.type}', 'speed', this.value)" 
+                                   id="speed-powerup-${config.type}-input" class="number-input">
+                        </div>
+                    </div>
+                `;
+                
+                div.appendChild(canvas);
+                div.appendChild(info);
+                container.appendChild(div);
+                
+                // 绘制静态道具
+                drawStaticPowerup(canvas, config);
+            });
+        }
+
+        // 创建玩家展示
+        function createPlayerDisplay() {
+            const canvas = document.getElementById('playerCanvas');
+            drawStaticPlayer(canvas);
+        }
+
+        // 绘制静态敌机
+        function drawStaticEnemy(canvas, enemy) {
+            const ctx = canvas.getContext('2d');
+            window.ctx = ctx; // 设置全局ctx
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 居中绘制
+            enemy.x = (canvas.width - enemy.width) / 2;
+            enemy.y = (canvas.height - enemy.height) / 2;
+            
+            enemy.draw();
+        }
+
+        // 绘制静态子弹
+        function drawStaticBullet(canvas, bullet) {
+            const ctx = canvas.getContext('2d');
+            window.ctx = ctx;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 居中绘制
+            bullet.x = (canvas.width - bullet.width) / 2;
+            bullet.y = (canvas.height - bullet.height) / 2;
+            
+            bullet.draw();
+        }
+
+        // 绘制静态道具
+        function drawStaticPowerup(canvas, config) {
+            const ctx = canvas.getContext('2d');
+            window.ctx = ctx;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 创建道具实例
+            const powerup = new PowerUp(canvas.width/2 - 12.5, canvas.height/2 - 12.5, config.type, config.color);
+            
+            // 存储道具实例
+            powerupInstances[config.type] = powerup;
+            
+            powerup.draw();
+        }
+
+        // 绘制静态玩家
+        function drawStaticPlayer(canvas) {
+            const ctx = canvas.getContext('2d');
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制玩家飞机（小蜜蜂）
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            // 身体（椭圆形）
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, 15, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 黑色条纹
+            ctx.fillStyle = '#000000';
+            for (let i = 0; i < 3; i++) {
+                ctx.fillRect(centerX - 12 + i * 8, centerY - 8, 3, 16);
+            }
+            
+            // 翅膀
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.8;
+            // 左翅膀
+            ctx.beginPath();
+            ctx.ellipse(centerX - 18, centerY - 5, 8, 12, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+            // 右翅膀
+            ctx.beginPath();
+            ctx.ellipse(centerX + 18, centerY - 5, 8, 12, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.globalAlpha = 1.0;
+            
+            // 眼睛
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(centerX - 5, centerY - 3, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(centerX + 5, centerY - 3, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 触角
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX - 3, centerY - 10);
+            ctx.lineTo(centerX - 6, centerY - 15);
+            ctx.moveTo(centerX + 3, centerY - 10);
+            ctx.lineTo(centerX + 6, centerY - 15);
+            ctx.stroke();
+            
+            // 触角末端
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(centerX - 6, centerY - 15, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(centerX + 6, centerY - 15, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 动画控制
+        function startAnimation() {
+            if (animationRunning) return;
+            
+            animationRunning = true;
+            document.getElementById('animBtn').classList.add('active');
+            animate();
+        }
+
+        function stopAnimation() {
+            animationRunning = false;
+            document.getElementById('animBtn').classList.remove('active');
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        function resetAll() {
+            stopAnimation();
+            init();
+        }
+
+        function animate() {
+            if (!animationRunning) return;
+            
+            // 更新所有动画元素
+            updateAnimations();
+            
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function updateAnimations() {
+            // 更新道具动画
+            powerupTypes.forEach(config => {
+                const canvas = document.getElementById(`powerup-${config.type}`);
+                if (canvas) {
+                    drawStaticPowerup(canvas, config);
+                }
+            });
+            
+            // 更新子弹动画
+            bulletTypes.forEach(config => {
+                const canvas = document.getElementById(`bullet-${config.type}`);
+                if (canvas) {
+                    const bullet = bulletInstances[config.type] || new Bullet(75, 50, 3, config.color, config.type, 0, 0.1);
+                    bullet.animationTimer += 0.3;
+                    drawStaticBullet(canvas, bullet);
+                }
+            });
+        }
+
+        // 参数控制函数
+        function toggleParams(elementId) {
+            const paramsDiv = document.getElementById(`params-${elementId}`);
+            if (paramsDiv.style.display === 'none') {
+                paramsDiv.style.display = 'block';
+            } else {
+                paramsDiv.style.display = 'none';
+            }
+        }
+
+        // 同步滑块和数字输入框的值
+        function syncInputValue(paramId, value) {
+            const inputElement = document.getElementById(`${paramId}-input`);
+            if (inputElement) {
+                inputElement.value = value;
+            }
+        }
+        
+        // 从数字输入框更新滑块和参数
+        function syncSliderValue(paramId, value) {
+            const sliderElement = document.querySelector(`input[oninput*="${paramId}"]`);
+            if (sliderElement) {
+                sliderElement.value = value;
+            }
+        }
+
+        function updateEnemyParam(type, param, value) {
+            const enemy = enemyInstances[type];
+            if (!enemy) return;
+            
+            // 更新参数
+            if (param === 'width' || param === 'height' || param === 'health') {
+                enemy[param] = parseInt(value);
+            } else if (param === 'speed') {
+                enemy[param] = parseFloat(value);
+            } else if (param === 'color') {
+                enemy[param] = value;
+            }
+            
+            // 重新绘制
+            const canvas = document.getElementById(`enemy-${type}`);
+            if (canvas) {
+                drawStaticEnemy(canvas, enemy);
+            }
+            
+            // 更新统计信息
+            updateEnemyStats(type, enemy);
+        }
+        
+        function updateEnemyParamFromInput(type, param, value) {
+            // 同步滑块值
+            syncSliderValue(`${param}-enemy-${type}`, value);
+            // 调用原有的更新函数
+            updateEnemyParam(type, param, value);
+        }
+
+        function updateBulletParam(type, param, value) {
+            const bullet = bulletInstances[type];
+            if (!bullet) return;
+            
+            // 更新参数
+            if (param === 'width' || param === 'height') {
+                bullet[param] = parseInt(value);
+            } else if (param === 'color') {
+                bullet[param] = value;
+                bullet.glowColor = value; // 同时更新发光颜色
+            } else if (param === 'speed') {
+                const speed = parseFloat(value);
+                bullet.vy = bullet.vy < 0 ? -speed : speed;
+                bullet.vx = bullet.vx < 0 ? -speed : speed;
+            } else if (param === 'followShootDirection') {
+                bullet.followShootDirection = value;
+                // 控制角度控件的显示/隐藏
+                const angleControls = document.getElementById(`angleControls-bullet-${type}`);
+                if (angleControls) {
+                    angleControls.style.display = value ? 'none' : 'block';
+                }
+                if (value) {
+                    // 如果启用跟随射击方向，设置默认向下的角度
+                    bullet.angle = Math.PI / 2; // 90度，向下
+                    const speed = Math.sqrt(bullet.vx * bullet.vx + bullet.vy * bullet.vy);
+                    bullet.vx = Math.cos(bullet.angle) * speed;
+                    bullet.vy = Math.sin(bullet.angle) * speed;
+                } else {
+                    // 如果不跟随射击方向，重置为默认速度
+                    bullet.angle = 0;
+                    const speed = Math.sqrt(bullet.vx * bullet.vx + bullet.vy * bullet.vy);
+                    bullet.vx = 0;
+                    bullet.vy = bullet.vy < 0 ? -speed : speed;
+                }
+            } else if (param === 'enableRotation') {
+                bullet.enableRotation = value;
+                // 控制旋转控件的显示/隐藏
+                const rotationControls = document.getElementById(`rotationControls-bullet-${type}`);
+                if (rotationControls) {
+                    rotationControls.style.display = value ? 'block' : 'none';
+                }
+                if (value) {
+                    bullet.rotationSpeed = bullet.rotationSpeed || 0.1; // 默认旋转速度
+                } else {
+                    bullet.rotationSpeed = 0;
+                }
+            } else if (param === 'angle') {
+                bullet.angle = parseFloat(value);
+                // 根据角度更新速度分量
+                const speed = Math.sqrt(bullet.vx * bullet.vx + bullet.vy * bullet.vy);
+                const angleRad = (bullet.angle * Math.PI) / 180;
+                bullet.vx = Math.cos(angleRad) * speed;
+                bullet.vy = Math.sin(angleRad) * speed;
+            } else if (param === 'rotationSpeed') {
+                bullet.rotationSpeed = parseFloat(value);
+            }
+            
+            // 重新绘制
+            const canvas = document.getElementById(`bullet-${type}`);
+            if (canvas) {
+                drawStaticBullet(canvas, bullet);
+            }
+            
+            // 更新统计信息
+            updateBulletStats(type, bullet);
+        }
+        
+        function updateBulletParamFromInput(type, param, value) {
+            // 同步滑块值
+            syncSliderValue(`${param}-bullet-${type}`, value);
+            // 调用原有的更新函数
+            updateBulletParam(type, param, value);
+        }
+
+        function updateEnemyStats(type, enemy) {
+            const container = document.querySelector(`#enemy-${type}`).parentNode;
+            const statsDiv = container.querySelector('.stats');
+            if (statsDiv) {
+                statsDiv.innerHTML = `
+                    <div class="stat-item">尺寸: ${enemy.width}x${enemy.height}</div>
+                    <div class="stat-item">血量: ${enemy.health}</div>
+                    <div class="stat-item">速度: ${enemy.speed}</div>
+                    <div class="stat-item">射击间隔: ${enemy.shootInterval}</div>
+                    <div class="stat-item">颜色: <span style="color: ${enemy.color}; font-weight: bold;">${enemy.color}</span></div>
+                `;
+            }
+        }
+
+        function updateBulletStats(type, bullet) {
+             const container = document.querySelector(`#bullet-${type}`).parentNode;
+             const statsDiv = container.querySelector('.stats');
+             if (statsDiv) {
+                 const followDirection = bullet.followShootDirection ? '是' : '否';
+                 const enableRotation = bullet.enableRotation ? '是' : '否';
+                 statsDiv.innerHTML = `
+                     <div class="stat-item">尺寸: ${bullet.width}x${bullet.height}</div>
+                     <div class="stat-item">颜色: <span style="color: ${bullet.color}; font-weight: bold;">${bullet.color}</span></div>
+                     <div class="stat-item">类型: ${bullet.type}</div>
+                     <div class="stat-item">跟随射击方向: ${followDirection}</div>
+                     <div class="stat-item">启用旋转: ${enableRotation}</div>
+                 `;
+             }
+         }
+
+         function updatePowerupParam(type, param, value) {
+             const powerup = powerupInstances[type];
+             if (!powerup) return;
+             
+             // 更新参数
+             if (param === 'size') {
+                 powerup.size = parseInt(value);
+                 powerup.width = powerup.size;
+                 powerup.height = powerup.size;
+             } else if (param === 'color') {
+                 powerup.color = value;
+             } else if (param === 'speed') {
+                 powerup.speed = parseFloat(value);
+                 powerup.vx = powerup.vx < 0 ? -powerup.speed : powerup.speed;
+                 powerup.vy = powerup.vy < 0 ? -powerup.speed : powerup.speed;
+             }
+             
+             // 重新绘制
+             const canvas = document.getElementById(`powerup-${type}`);
+             if (canvas) {
+                 drawStaticPowerup(canvas, {type: type, color: powerup.color});
+             }
+             
+             // 更新统计信息
+             updatePowerupStats(type, powerup);
+         }
+         
+         function updatePowerupParamFromInput(type, param, value) {
+             // 同步滑块值
+             syncSliderValue(`${param}-powerup-${type}`, value);
+             // 调用原有的更新函数
+             updatePowerupParam(type, param, value);
+         }
+
+         function updatePowerupStats(type, powerup) {
+             const container = document.querySelector(`#powerup-${type}`).parentNode;
+             const statsDiv = container.querySelector('.stats');
+             if (statsDiv) {
+                 const size = powerup.size || 25;
+                 statsDiv.innerHTML = `
+                     <div class="stat-item">尺寸: ${size}x${size}</div>
+                     <div class="stat-item">颜色: <span style="color: ${powerup.color}; font-weight: bold;">${powerup.color}</span></div>
+                     <div class="stat-item">类型: ${powerup.type}</div>
+                 `;
+             }
+         }
+
+        // 保存到源文件
+        async function saveToFiles() {
+            try {
+                // 更新bullet.js文件
+                await updateBulletFile();
+                
+                // 更新enemy.js文件
+                await updateEnemyFile();
+                
+                alert('配置已成功保存到源文件！');
+            } catch (error) {
+                alert('保存失败：' + error.message);
+            }
+        }
+        
+        async function updateBulletFile() {
+            // 构建新的子弹类型配置
+            const bulletConfigs = {};
+            Object.keys(bulletInstances).forEach(type => {
+                const bullet = bulletInstances[type];
+                bulletConfigs[type] = {
+                    width: bullet.width,
+                    height: bullet.height,
+                    color: bullet.color,
+                    glowColor: bullet.glowColor || bullet.color
+                };
+            });
+            
+            console.log('正在更新子弹配置：', bulletConfigs);
+            
+            // 调用服务器API更新文件
+            const response = await fetch('http://localhost:3001/api/update-bullets', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ bulletConfigs })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || '更新子弹配置失败');
+            }
+            
+            console.log('bullet.js 文件已更新');
+        }
+        
+        async function updateEnemyFile() {
+            // 构建新的敌机类型配置
+            const enemyConfigs = {};
+            Object.keys(enemyInstances).forEach(type => {
+                const enemy = enemyInstances[type];
+                enemyConfigs[type] = {
+                    width: enemy.width,
+                    height: enemy.height,
+                    health: enemy.health,
+                    speed: enemy.speed,
+                    color: enemy.color
+                };
+            });
+            
+            console.log('正在更新敌机配置：', enemyConfigs);
+            
+            // 调用服务器API更新文件
+            const response = await fetch('http://localhost:3001/api/update-enemies', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ enemyConfigs })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || '更新敌机配置失败');
+            }
+            
+            console.log('enemy.js 文件已更新');
+        }
+
+        // 导出参数配置
+        function exportConfig() {
+            const config = {
+                enemies: {},
+                bullets: {}
+            };
+            
+            // 导出敌机配置
+            Object.keys(enemyInstances).forEach(type => {
+                const enemy = enemyInstances[type];
+                config.enemies[type] = {
+                    width: enemy.width,
+                    height: enemy.height,
+                    health: enemy.health,
+                    speed: enemy.speed,
+                    color: enemy.color
+                };
+            });
+            
+            // 导出子弹配置
+             Object.keys(bulletInstances).forEach(type => {
+                 const bullet = bulletInstances[type];
+                 config.bullets[type] = {
+                     width: bullet.width,
+                     height: bullet.height,
+                     color: bullet.color,
+                     speed: Math.abs(bullet.vy)
+                 };
+             });
+             
+             // 导出道具配置
+             config.powerups = {};
+             Object.keys(powerupInstances).forEach(type => {
+                 const powerup = powerupInstances[type];
+                 config.powerups[type] = {
+                     size: powerup.size || 25,
+                     color: powerup.color,
+                     speed: powerup.speed || 2
+                 };
+             });
+            
+            // 下载配置文件
+            const dataStr = JSON.stringify(config, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'game_config.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

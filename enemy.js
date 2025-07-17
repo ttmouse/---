@@ -1,6 +1,6 @@
 // 敌机类
 class Enemy {
-    constructor(x, y, type = 'normal') {
+    constructor(x, y, type = 'normal', color = null) {
         this.x = x;
         this.y = y;
         this.type = type;
@@ -13,7 +13,7 @@ class Enemy {
                 this.width = 80;
                 this.height = 60;
                 this.speed = 1;
-                this.color = '#ff0000';
+                this.color = color || '#ff0000';
                 this.health = 150;
                  this.maxHealth = 150;
                 this.shootInterval = 50;
@@ -29,7 +29,7 @@ class Enemy {
                 this.width = 25;
                 this.height = 25;
                 this.speed = 4;
-                this.color = '#ffff00';
+                this.color = color || '#ffff00';
                 this.health = 3;
                 this.maxHealth = 3;
                 this.shootInterval = 80;
@@ -40,7 +40,7 @@ class Enemy {
                 this.width = 45;
                 this.height = 40;
                 this.speed = 1.5;
-                this.color = '#8b4513';
+                this.color = color || '#8b4513';
                 this.health = 15;
                 this.maxHealth = 15;
                 this.shootInterval = 100;
@@ -51,7 +51,7 @@ class Enemy {
                 this.width = 30;
                 this.height = 25;
                 this.speed = 2;
-                this.color = '#666666';
+                this.color = color || '#666666';
                 this.health = 9;
                 this.maxHealth = 9;
                 this.shootInterval = 90;
@@ -62,7 +62,7 @@ class Enemy {
                 this.width = 25;
                 this.height = 25;
                 this.speed = 5;
-                this.color = '#00ff00';
+                this.color = color || '#00ff00';
                 this.health = 3;
                 this.maxHealth = 3;
                 this.shootInterval = 60;
@@ -73,7 +73,7 @@ class Enemy {
                 this.width = 35;
                 this.height = 20;
                 this.speed = 2.4;
-                this.color = '#ff8800';
+                this.color = color || '#ff8800';
                 this.health = 3;
                 this.maxHealth = 3;
                 this.shootInterval = 60;
@@ -243,7 +243,7 @@ class Enemy {
                         this.x + this.width / 2,
                         this.y + this.height,
                         2.5,
-                        '#ff0000',
+                        '#ff6600',
                         'enemy'
                     ));
                     break;
@@ -252,7 +252,7 @@ class Enemy {
                     for (let i = -1; i <= 1; i++) {
                         const angle = i * 0.3;
                         const bulletType = i === 0 ? 'enemy' : 'venom'; // 中间子弹可抵消
-                        const bulletColor = i === 0 ? '#ff6600' : '#ff0000'; // 不可抵消子弹用红色
+                        const bulletColor = i === 0 ? '#ff6600' : '#00ff62'; // venom子弹使用绿色
                         enemyBullets.push(new Bullet(
                             this.x + this.width / 2 + i * 10,
                             this.y + this.height,
@@ -268,7 +268,7 @@ class Enemy {
                     for (let i = -2; i <= 2; i++) {
                         const angle = i * 0.2;
                         const bulletType = i % 2 === 0 ? 'enemy' : 'piercing'; // 偶数位置可抵消
-                        const bulletColor = i % 2 === 0 ? '#ff6600' : '#ff0000'; // 不可抵消子弹用红色
+                        const bulletColor = i % 2 === 0 ? '#ff6600' : '#ff00ff'; // piercing子弹使用紫色
                         enemyBullets.push(new Bullet(
                             this.x + this.width / 2,
                             this.y + this.height,
@@ -322,7 +322,7 @@ class Enemy {
                     return;
                 case 'armored':
                     bulletType = 'piercing';
-                    bulletColor = '#888888';
+                    bulletColor = '#ff00ff'; // piercing子弹使用紫色
                     bulletSpeed = 4;
                     break;
                 case 'scout':
